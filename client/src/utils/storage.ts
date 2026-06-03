@@ -4,7 +4,7 @@ const STORAGE_KEYS = {
   transactions: 'budget_transactions'
 };
 
-const API_URL = 'http://localhost:3001/api/sync';
+const API_URL = 'https://budget-app-production-8b4d.up.railway.app/api/sync';
 
 const defaultAccounts = [
   { id: 'general-cash', name: 'Общий — Наличные', type: 'cash', balance: 0, currency: 'RUB' },
