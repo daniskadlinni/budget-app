@@ -19,8 +19,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId as string;
     const { id, name, type, currency } = req.body;
+    const userId = String(req.userId);
 
     const account = await prisma.account.create({
       data: {
@@ -29,7 +29,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         name,
         type,
         currency
-      }
+      } as any
     });
 
     res.status(201).json(account);

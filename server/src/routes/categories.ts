@@ -19,11 +19,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId as string;
     const { id, name, type, icon, color } = req.body;
+    const userId = String(req.userId);
 
     const category = await prisma.category.create({
-      data: { id, userId, name, type, icon, color }
+      data: { id, userId, name, type, icon, color } as any
     });
 
     res.status(201).json(category);

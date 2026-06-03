@@ -35,8 +35,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId as string;
     const { id, accountId, categoryId, type, amount, date, note, tags } = req.body;
+    const userId = String(req.userId);
 
     const transaction = await prisma.transaction.create({
       data: {
@@ -49,8 +49,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         date: new Date(date),
         note,
         tags: tags || []
-      },
-      include: { account: true, category: true }
+      } as any
     });
 
     res.status(201).json(transaction);
