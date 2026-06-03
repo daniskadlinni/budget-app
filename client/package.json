@@ -8,7 +8,7 @@
     "lint": "eslint --ext .ts,.vue src"
   },
   "dependencies": {
-    "@inquirer/core": "^11.2.1",
+    "@inquirer/core": "^5.0.0",
     "@quasar/extras": "^1.16.9",
     "@vueuse/core": "^10.9.0",
     "axios": "^1.6.7",
