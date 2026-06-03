@@ -8,12 +8,13 @@
     "lint": "eslint --ext .ts,.vue src"
   },
   "dependencies": {
+    "@inquirer/core": "0.13.0",
     "@quasar/extras": "^1.16.9",
     "@vueuse/core": "^10.9.0",
     "axios": "^1.6.7",
     "chart.js": "^4.4.2",
-    "inquirer": "^14.0.2",
-    "mute-stream": "^3.0.0",
+    "inquirer": "^8.2.5",
+    "mute-stream": "^0.0.8",
     "pinia": "^2.1.7",
     "quasar": "^2.14.5",
     "socket.io-client": "^4.8.3",
