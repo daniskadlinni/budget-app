@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import prisma from '../db/prisma';
 import { generateTokens } from '../middleware/auth';
+import { CategoryType } from '@prisma/client';
 
 const router = Router();
 
@@ -40,7 +41,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 
     const { accessToken, refreshToken } = generateTokens(user.id);
 
-    const defaultCategories = [
+    const defaultCategories: { name: string; type: CategoryType; icon: string; color: string }[] = [
       { name: 'Зарплата', type: 'income', icon: 'salary', color: '#4CAF50' },
       { name: 'Фриланс', type: 'income', icon: 'freelance', color: '#8BC34A' },
       { name: 'Инвестиции', type: 'income', icon: 'investment', color: '#CDDC39' },
