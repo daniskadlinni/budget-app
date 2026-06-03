@@ -1,0 +1,35 @@
+{
+  "name": "our-budget-client",
+  "version": "1.0.0",
+  "description": "Frontend for personal finance app",
+  "scripts": {
+    "dev": "quasar dev",
+    "build": "quasar build",
+    "lint": "eslint --ext .ts,.vue src"
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.9",
+    "@vueuse/core": "^10.9.0",
+    "axios": "^1.6.7",
+    "chart.js": "^4.4.2",
+    "pinia": "^2.1.7",
+    "quasar": "^2.14.5",
+    "socket.io-client": "^4.8.3",
+    "uuid": "^9.0.1",
+    "vue": "^3.4.21",
+    "vue-chartjs": "^5.3.0",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@quasar/app-vite": "^1.7.3",
+    "@types/node": "^20.11.24",
+    "@types/uuid": "^9.0.8",
+    "@typescript-eslint/eslint-plugin": "^7.1.0",
+    "@typescript-eslint/parser": "^7.1.0",
+    "autoprefixer": "^10.4.18",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.22.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4"
+  }
+}

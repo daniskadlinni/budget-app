@@ -1,0 +1,17 @@
+:root {
+  --primary-color: #2196f3;
+  --secondary-color: #4caf50;
+  --accent-color: #ff5722;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+}
+
+.text-positive {
+  color: #4caf50 !important;
+}
+
+.text-negative {
+  color: #ff5722 !important;
+}
