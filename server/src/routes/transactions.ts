@@ -1,9 +1,10 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import prisma from '../db/prisma';
+import { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { page = '1', limit = '50', startDate, endDate, accountId } = req.query;
@@ -32,7 +33,7 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { id, accountId, categoryId, type, amount, date, note, tags } = req.body;
@@ -59,7 +60,7 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-router.patch('/:id', async (req: Request, res: Response) => {
+router.patch('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { id } = req.params;
@@ -85,7 +86,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
     const { id } = req.params;
