@@ -4,6 +4,8 @@ const STORAGE_KEYS = {
   transactions: 'budget_transactions'
 };
 
+const API_URL = 'http://localhost:3001/api/sync';
+
 const defaultAccounts = [
   { id: 'general-cash', name: 'Общий — Наличные', type: 'cash', balance: 0, currency: 'RUB' },
   { id: 'general-card', name: 'Общий — Карта', type: 'card', balance: 0, currency: 'RUB' },
@@ -25,6 +27,43 @@ const defaultCategories = [
   { id: 'cat-other-inc', name: 'Прочее', type: 'income', color: '#9E9E9E' }
 ];
 
+const syncToServer = async () => {
+  try {
+    const data = {
+      accounts: getAccounts(),
+      categories: getCategories(),
+      transactions: getTransactions(),
+      budgets: getBudgets(),
+      goals: getGoals(),
+      subscriptions: getSubscriptions()
+    };
+    await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch (e) {
+    console.error('Sync error:', e);
+  }
+};
+
+const syncFromServer = async () => {
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    if (data.accounts) localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(data.accounts));
+    if (data.categories) localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(data.categories));
+    if (data.transactions) localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(data.transactions));
+    if (data.budgets) localStorage.setItem('budget_limits', JSON.stringify(data.budgets));
+    if (data.goals) localStorage.setItem('budget_goals', JSON.stringify(data.goals));
+    if (data.subscriptions) localStorage.setItem('budget_subscriptions', JSON.stringify(data.subscriptions));
+    return data;
+  } catch (e) {
+    console.error('Fetch error:', e);
+    return null;
+  }
+};
+
 export const initStorage = () => {
   if (!localStorage.getItem(STORAGE_KEYS.accounts)) {
     localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(defaultAccounts));
@@ -37,53 +76,39 @@ export const initStorage = () => {
   }
 };
 
-export const getAccounts = () => {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.accounts) || '[]');
-};
-
-export const getTransactions = () => {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.transactions) || '[]');
-};
-
-export const getCategories = () => {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.categories) || '[]');
-};
+export const getAccounts = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.accounts) || '[]');
+export const getTransactions = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.transactions) || '[]');
+export const getCategories = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.categories) || '[]');
 
 export const saveTransaction = (t) => {
   const transactions = getTransactions();
   transactions.push(t);
   localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(transactions));
+  syncToServer();
 };
 
 export const deleteTransaction = (id) => {
   const transactions = getTransactions().filter(t => t.id !== id && t.transferToId !== id);
   localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(transactions));
+  syncToServer();
 };
 
-export const exportData = () => {
-  return {
-    accounts: getAccounts(),
-    categories: getCategories(),
-    transactions: getTransactions(),
-    exportedAt: new Date().toISOString()
-  };
-};
+export const exportData = () => ({
+  accounts: getAccounts(),
+  categories: getCategories(),
+  transactions: getTransactions(),
+  exportedAt: new Date().toISOString()
+});
 
 export const importData = (data) => {
   if (data.accounts) localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(data.accounts));
   if (data.categories) localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(data.categories));
   if (data.transactions) localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(data.transactions));
+  syncToServer();
 };
 
 const STORAGE_KEYS_BUDGET = 'budget_limits';
-
-export const getBudgets = () => {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS_BUDGET) || '[]');
-};
-
-export const setBudgets = (budgets: any[]) => {
-  localStorage.setItem(STORAGE_KEYS_BUDGET, JSON.stringify(budgets));
-};
+export const getBudgets = () => JSON.parse(localStorage.getItem(STORAGE_KEYS_BUDGET) || '[]');
 
 export const saveBudget = (budget: any) => {
   const budgets = getBudgets();
@@ -95,18 +120,19 @@ export const saveBudget = (budget: any) => {
   if (idx >= 0) budgets[idx] = budget;
   else budgets.push(budget);
   localStorage.setItem(STORAGE_KEYS_BUDGET, JSON.stringify(budgets));
+  syncToServer();
 };
 
 export const deleteBudget = (id: string) => {
   const budgets = getBudgets().filter((b: any) => b.id !== id);
   localStorage.setItem(STORAGE_KEYS_BUDGET, JSON.stringify(budgets));
+  syncToServer();
 };
 
 export const getMonthlySpent = (categoryIds?: string[]) => {
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const transactions = getTransactions();
-  return transactions
+  return getTransactions()
     .filter(t => {
       if (t.type !== 'expense') return false;
       if (!t.date.startsWith(monthKey)) return false;
@@ -117,10 +143,7 @@ export const getMonthlySpent = (categoryIds?: string[]) => {
 };
 
 const STORAGE_KEYS_SUBS = 'budget_subscriptions';
-
-export const getSubscriptions = () => {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS_SUBS) || '[]');
-};
+export const getSubscriptions = () => JSON.parse(localStorage.getItem(STORAGE_KEYS_SUBS) || '[]');
 
 export const saveSubscription = (sub: any) => {
   const subs = getSubscriptions();
@@ -132,11 +155,13 @@ export const saveSubscription = (sub: any) => {
   if (idx >= 0) subs[idx] = sub;
   else subs.push(sub);
   localStorage.setItem(STORAGE_KEYS_SUBS, JSON.stringify(subs));
+  syncToServer();
 };
 
 export const deleteSubscription = (id: string) => {
   const subs = getSubscriptions().filter((s: any) => s.id !== id);
   localStorage.setItem(STORAGE_KEYS_SUBS, JSON.stringify(subs));
+  syncToServer();
 };
 
 export const saveCategory = (cat: any) => {
@@ -149,18 +174,17 @@ export const saveCategory = (cat: any) => {
   if (idx >= 0) categories[idx] = cat;
   else categories.push(cat);
   localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(categories));
+  syncToServer();
 };
 
 export const deleteCategory = (id: string) => {
   const categories = getCategories().filter(c => c.id !== id);
   localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(categories));
+  syncToServer();
 };
 
 const STORAGE_KEYS_GOALS = 'budget_goals';
-
-export const getGoals = () => {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS_GOALS) || '[]');
-};
+export const getGoals = () => JSON.parse(localStorage.getItem(STORAGE_KEYS_GOALS) || '[]');
 
 export const saveGoal = (goal: any) => {
   const goals = getGoals();
@@ -172,28 +196,21 @@ export const saveGoal = (goal: any) => {
   if (idx >= 0) goals[idx] = goal;
   else goals.push(goal);
   localStorage.setItem(STORAGE_KEYS_GOALS, JSON.stringify(goals));
+  syncToServer();
 };
 
 export const deleteGoal = (id: string) => {
   const goals = getGoals().filter((g: any) => g.id !== id);
   localStorage.setItem(STORAGE_KEYS_GOALS, JSON.stringify(goals));
-};
-
-export const getAccountBalanceById = (accountId: string) => {
-  return getAccountBalance(accountId);
+  syncToServer();
 };
 
 export const formatNumber = (num: number) => num.toLocaleString('ru-RU', { minimumFractionDigits: 2 });
 
-export const getAccountBalance = (accountId) => {
-  const accounts = getAccounts();
+export const getAccountBalance = (accountId: string) => {
   const transactions = getTransactions();
-  const acc = accounts.find(a => a.id === accountId);
-  if (!acc) return 0;
-
-  let balance = acc.balance || 0;
-
-  transactions.forEach(t => {
+  let balance = 0;
+  transactions.forEach((t: any) => {
     if (t.accountId === accountId) {
       if (t.type === 'income') balance += t.amount;
       else if (t.type === 'expense') balance -= t.amount;
@@ -201,6 +218,7 @@ export const getAccountBalance = (accountId) => {
       else if (t.type === 'transfer' && !t.isTransferFrom) balance += t.amount;
     }
   });
-
   return balance;
 };
+
+export { syncFromServer };

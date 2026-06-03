@@ -31,7 +31,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/accounts', authMiddleware, accountRoutes);
 app.use('/api/categories', authMiddleware, categoryRoutes);
 app.use('/api/transactions', authMiddleware, transactionRoutes);
-app.use('/api/sync', authMiddleware, syncRoutes);
+app.use('/api/sync', syncRoutes);
 
 io.on('connection', (socket) => {
   const userId = socket.handshake.auth.userId;

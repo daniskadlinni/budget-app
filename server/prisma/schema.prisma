@@ -101,3 +101,12 @@ model SyncLog {
 
   @@map("sync_log")
 }
+
+model SyncData {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sync_data")
+}
