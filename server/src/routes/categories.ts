@@ -6,7 +6,7 @@ const router = Router();
 
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const categories = await prisma.category.findMany({
       where: { userId },
       orderBy: { name: 'asc' }
@@ -19,7 +19,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { id, name, type, icon, color } = req.body;
 
     const category = await prisma.category.create({
@@ -35,7 +35,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
 router.patch('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { id } = req.params;
     const { name, type, icon, color } = req.body;
 
@@ -52,7 +52,7 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { id } = req.params;
 
     await prisma.category.delete({ where: { id, userId } });

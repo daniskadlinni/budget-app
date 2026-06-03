@@ -6,7 +6,7 @@ const router = Router();
 
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { page = '1', limit = '50', startDate, endDate, accountId } = req.query;
 
     const where: any = { userId };
@@ -35,7 +35,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { id, accountId, categoryId, type, amount, date, note, tags } = req.body;
 
     const transaction = await prisma.transaction.create({
@@ -62,7 +62,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
 router.patch('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { id } = req.params;
     const { accountId, categoryId, type, amount, date, note, tags } = req.body;
 
@@ -88,7 +88,7 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { id } = req.params;
 
     await prisma.transaction.delete({ where: { id, userId } });

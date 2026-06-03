@@ -6,7 +6,7 @@ const router = Router();
 
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const accounts = await prisma.account.findMany({
       where: { userId, isArchived: false },
       orderBy: { createdAt: 'desc' }
@@ -19,7 +19,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { id, name, type, currency } = req.body;
 
     const account = await prisma.account.create({
@@ -41,7 +41,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
 router.patch('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { id } = req.params;
     const { name, type, currency, isArchived } = req.body;
 
@@ -58,7 +58,7 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId!;
     const { id } = req.params;
 
     await prisma.account.update({
