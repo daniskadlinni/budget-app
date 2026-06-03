@@ -35,7 +35,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = req.userId as string;
     const { id, accountId, categoryId, type, amount, date, note, tags } = req.body;
 
     const transaction = await prisma.transaction.create({
