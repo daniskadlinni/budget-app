@@ -48,7 +48,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
-import { getAccounts, getTransactions, saveTransaction, deleteTransaction, getCategories, formatNumber } from 'src/utils/storage';
+import { getAccounts, getTransactions, saveTransaction, deleteTransaction, getCategories, getAccountBalance, formatNumber } from 'src/utils/storage';
+import { useQuasar } from 'quasar';
+
+const $q = useQuasar();
 
 const showDialog = ref(false);
 const transactions = ref<any[]>([]);
@@ -85,7 +88,24 @@ const save = () => {
   if (!form.value.amount) return;
   const now = new Date().toISOString();
 
+  if (form.value.type !== 'transfer' && form.value.amount > getAccountBalance(form.value.accountId)) {
+    $q.dialog({
+      title: 'Недостаточно средств',
+      message: `На счёте недостаточно средств. Пополни счёт "${accountOpts.find(a => a.value === form.value.accountId)?.label}"`,
+      ok: { label: 'OK', color: 'primary' }
+    });
+    return;
+  }
+
   if (form.value.type === 'transfer') {
+    if (form.value.amount > getAccountBalance(form.value.fromId)) {
+      $q.dialog({
+        title: 'Недостаточно средств',
+        message: `На счёте недостаточно средств. Пополни счёт "${accountOpts.find(a => a.value === form.value.fromId)?.label}"`,
+        ok: { label: 'OK', color: 'primary' }
+      });
+      return;
+    }
     const t1 = { id: uuidv4(), accountId: form.value.fromId, type: 'transfer', amount: form.value.amount, date: form.value.date, note: form.value.note, createdAt: now, updatedAt: now, isTransferFrom: true, transferToId: form.value.toId };
     const t2 = { id: uuidv4(), accountId: form.value.toId, type: 'transfer', amount: form.value.amount, date: form.value.date, note: form.value.note, createdAt: now, updatedAt: now, isTransferFrom: false, transferToId: form.value.fromId };
     saveTransaction(t1);
