@@ -1,77 +1,47 @@
 <template>
   <q-page padding>
-    <div class="text-h5 q-mb-md">Бюджет на месяц</div>
+    <div class="text-h5 q-mb-md">Бюджет</div>
 
-    <q-card class="q-mb-md">
+    <div class="text-h6 q-mb-md">Общий месячный лимит: {{ formatNumber(totalBudget) }} RUB</div>
+
+    <q-btn color="primary" icon="add" label="Добавить бюджет" class="q-mb-md" @click="openAdd" />
+
+    <q-card v-for="budget in budgets" :key="budget.id" class="q-mb-md">
       <q-card-section>
-        <div class="row items-center q-mb-md">
-          <div class="col">
-            <div class="text-caption text-grey">Лимит</div>
-            <div class="text-h6">{{ formatNumber(budgetLimit) }} RUB</div>
+        <div class="row items-center justify-between">
+          <div class="text-h6">{{ budget.name }}</div>
+          <div class="row items-center q-gutter-sm">
+            <q-btn flat round icon="edit" @click="editBudget(budget)" />
+            <q-btn flat round icon="delete" color="negative" @click="remove(budget.id)" />
           </div>
-          <q-btn flat color="primary" icon="edit" @click="editLimit = true" />
         </div>
-
-        <q-linear-progress :value="progress" color="negative" size="20px" class="q-mb-sm" />
-        <div class="row justify-between">
-          <span class="text-negative">{{ formatNumber(spent) }} потрачено</span>
-          <span class="text-grey">{{ formatNumber(remaining) }} осталось</span>
+        <div class="row q-mt-sm items-center">
+          <div class="col">
+            <q-linear-progress :value="Math.min(budget.spent / budget.limit, 1)" :color="budget.spent > budget.limit ? 'negative' : 'primary'" size="15px" class="q-mr-sm" />
+          </div>
+          <div class="text-caption q-ml-sm" :class="budget.spent > budget.limit ? 'text-negative' : 'text-grey'">
+            {{ formatNumber(budget.spent) }} / {{ formatNumber(budget.limit) }}
+          </div>
+        </div>
+        <div v-if="budget.spent > budget.limit" class="text-negative q-mt-xs text-caption">
+          Превышен на {{ formatNumber(budget.spent - budget.limit) }} RUB
         </div>
       </q-card-section>
     </q-card>
 
-    <q-dialog v-model="editLimit">
-      <q-card style="min-width: 300px">
-        <q-card-section><div class="text-h6">Лимит бюджета</div></q-card-section>
-        <q-card-section>
-          <q-input v-model.number="newLimit" type="number" label="Сумма" filled />
-        </q-card-section>
-        <q-card-actions align="right">
-          <q-btn flat label="Отмена" v-close-popup />
-          <q-btn color="primary" label="Сохранить" @click="saveLimit" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-
-    <q-card>
-      <q-card-section>
-        <div class="text-h6">Подписки и автоплатежи</div>
-      </q-card-section>
-      <q-card-section>
-        <q-list separator>
-          <q-item v-for="sub in subscriptions" :key="sub.id">
-            <q-item-section avatar>
-              <q-icon name="repeat" :color="sub.active ? 'primary' : 'grey'" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>{{ sub.name }}</q-item-label>
-              <q-item-label caption>{{ sub.amount }} {{ sub.currency }} — каждые {{ sub.interval }} дней</q-item-label>
-            </q-item-section>
-            <q-item-section side>
-              <q-btn flat round icon="delete" color="negative" @click="remove(sub.id)" />
-            </q-item-section>
-          </q-item>
-        </q-list>
-      </q-card-section>
-      <q-card-section>
-        <q-btn color="primary" icon="add" label="Добавить подписку" @click="showAdd = true" />
-      </q-card-section>
-    </q-card>
-
-    <q-dialog v-model="showAdd">
-      <q-card style="min-width: 300px">
-        <q-card-section><div class="text-h6">Новая подписка</div></q-card-section>
+    <q-dialog v-model="showDialog">
+      <q-card style="min-width: 350px">
+        <q-card-section><div class="text-h6">{{ editing ? 'Редактировать' : 'Новый бюджет' }}</div></q-card-section>
         <q-card-section>
           <q-form class="q-gutter-md">
             <q-input v-model="form.name" label="Название" filled />
-            <q-input v-model.number="form.amount" label="Сумма" type="number" filled />
-            <q-select v-model="form.currency" :options="['RUB','USD','EUR']" label="Валюта" filled />
-            <q-input v-model.number="form.interval" label="Интервал (дней)" type="number" filled />
+            <q-input v-model.number="form.limit" label="Лимит (RUB)" type="number" filled />
+            <q-select v-model="form.categoryIds" :options="categoryOpts" label="Категории" multiple emit-value map-options filled clearable />
           </q-form>
         </q-card-section>
         <q-card-actions align="right">
           <q-btn flat label="Отмена" v-close-popup />
-          <q-btn color="primary" label="Сохранить" @click="addSub" />
+          <q-btn color="primary" label="Сохранить" @click="save" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -80,54 +50,59 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { getBudget, setBudget, getMonthlySpent, getSubscriptions, saveSubscription, deleteSubscription, formatNumber } from 'src/utils/storage';
-import { useQuasar } from 'quasar';
+import { getBudgets, saveBudget, deleteBudget, getMonthlySpent, getCategories, formatNumber } from 'src/utils/storage';
 
-const $q = useQuasar();
-const editLimit = ref(false);
-const showAdd = ref(false);
-const newLimit = ref(0);
-const budgetLimit = ref(0);
-const spent = ref(0);
+const budgets = ref<any[]>([]);
+const categories = ref<any[]>([]);
+const showDialog = ref(false);
+const editing = ref<any>(null);
+const form = ref({ name: '', limit: 0, categoryIds: [] as string[] });
 
-const form = ref({ name: '', amount: 0, currency: 'RUB', interval: 30 });
-const subscriptions = ref<any[]>([]);
+const categoryOpts = computed(() =>
+  categories.value
+    .filter(c => c.type === 'expense')
+    .map(c => ({ label: c.name, value: c.id }))
+);
 
-const progress = computed(() => {
-  if (!budgetLimit.value) return 0;
-  const p = spent.value / budgetLimit.value;
-  return p > 1 ? 1 : p;
-});
+const totalBudget = computed(() => budgets.value.reduce((s, b) => s + b.limit, 0));
 
-const remaining = computed(() => Math.max(0, budgetLimit.value - spent.value));
+const loadBudgets = () => {
+  const stored = getBudgets();
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-const saveLimit = () => {
-  setBudget(newLimit.value);
-  budgetLimit.value = newLimit.value;
-  editLimit.value = false;
-  $q.notify({ message: 'Лимит сохранён', color: 'positive' });
+  budgets.value = stored.map((b: any) => ({
+    ...b,
+    spent: getMonthlySpent(b.categoryIds)
+  }));
 };
 
-const addSub = () => {
-  if (!form.value.name || !form.value.amount) return;
-  saveSubscription({ ...form.value, active: true });
-  subscriptions.value = getSubscriptions();
-  showAdd.value = false;
-  form.value = { name: '', amount: 0, currency: 'RUB', interval: 30 };
+const openAdd = () => {
+  editing.value = null;
+  form.value = { name: '', limit: 0, categoryIds: [] };
+  showDialog.value = true;
+};
+
+const editBudget = (budget: any) => {
+  editing.value = budget;
+  form.value = { name: budget.name, limit: budget.limit, categoryIds: budget.categoryIds || [] };
+  showDialog.value = true;
+};
+
+const save = () => {
+  if (!form.value.name || !form.value.limit) return;
+  saveBudget({ ...form.value, id: editing.value?.id });
+  loadBudgets();
+  showDialog.value = false;
 };
 
 const remove = (id: string) => {
-  deleteSubscription(id);
-  subscriptions.value = getSubscriptions();
+  deleteBudget(id);
+  loadBudgets();
 };
 
 onMounted(() => {
-  const budget = getBudget();
-  const now = new Date();
-  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  budgetLimit.value = budget[monthKey] || 0;
-  newLimit.value = budgetLimit.value;
-  spent.value = getMonthlySpent();
-  subscriptions.value = getSubscriptions();
+  categories.value = getCategories();
+  loadBudgets();
 });
 </script>

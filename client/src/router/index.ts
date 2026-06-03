@@ -12,6 +12,7 @@ const routes = [
       { path: 'categories', component: () => import('pages/CategoriesPage.vue') },
       { path: 'analytics', component: () => import('pages/AnalyticsPage.vue') },
       { path: 'budget', component: () => import('pages/BudgetPage.vue') },
+      { path: 'goals', component: () => import('pages/GoalsPage.vue') },
       { path: 'settings', component: () => import('pages/SettingsPage.vue') }
     ]
   },

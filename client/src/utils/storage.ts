@@ -77,24 +77,42 @@ export const importData = (data) => {
 
 const STORAGE_KEYS_BUDGET = 'budget_limits';
 
-export const getBudget = () => {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS_BUDGET) || '{}');
+export const getBudgets = () => {
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS_BUDGET) || '[]');
 };
 
-export const setBudget = (limit: number) => {
-  const now = new Date();
-  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const budget = getBudget();
-  budget[monthKey] = limit;
-  localStorage.setItem(STORAGE_KEYS_BUDGET, JSON.stringify(budget));
+export const setBudgets = (budgets: any[]) => {
+  localStorage.setItem(STORAGE_KEYS_BUDGET, JSON.stringify(budgets));
 };
 
-export const getMonthlySpent = () => {
+export const saveBudget = (budget: any) => {
+  const budgets = getBudgets();
+  const now = new Date().toISOString();
+  budget.id = budget.id || 'budget-' + Date.now();
+  budget.createdAt = budget.createdAt || now;
+  budget.updatedAt = now;
+  const idx = budgets.findIndex((b: any) => b.id === budget.id);
+  if (idx >= 0) budgets[idx] = budget;
+  else budgets.push(budget);
+  localStorage.setItem(STORAGE_KEYS_BUDGET, JSON.stringify(budgets));
+};
+
+export const deleteBudget = (id: string) => {
+  const budgets = getBudgets().filter((b: any) => b.id !== id);
+  localStorage.setItem(STORAGE_KEYS_BUDGET, JSON.stringify(budgets));
+};
+
+export const getMonthlySpent = (categoryIds?: string[]) => {
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const transactions = getTransactions();
   return transactions
-    .filter(t => t.type === 'expense' && t.date.startsWith(monthKey))
+    .filter(t => {
+      if (t.type !== 'expense') return false;
+      if (!t.date.startsWith(monthKey)) return false;
+      if (categoryIds && categoryIds.length > 0 && !categoryIds.includes(t.categoryId)) return false;
+      return true;
+    })
     .reduce((s, t) => s + t.amount, 0);
 };
 
@@ -119,6 +137,50 @@ export const saveSubscription = (sub: any) => {
 export const deleteSubscription = (id: string) => {
   const subs = getSubscriptions().filter((s: any) => s.id !== id);
   localStorage.setItem(STORAGE_KEYS_SUBS, JSON.stringify(subs));
+};
+
+export const saveCategory = (cat: any) => {
+  const categories = getCategories();
+  const now = new Date().toISOString();
+  cat.id = cat.id || 'cat-' + Date.now();
+  cat.createdAt = cat.createdAt || now;
+  cat.updatedAt = now;
+  const idx = categories.findIndex(c => c.id === cat.id);
+  if (idx >= 0) categories[idx] = cat;
+  else categories.push(cat);
+  localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(categories));
+};
+
+export const deleteCategory = (id: string) => {
+  const categories = getCategories().filter(c => c.id !== id);
+  localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(categories));
+};
+
+const STORAGE_KEYS_GOALS = 'budget_goals';
+
+export const getGoals = () => {
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS_GOALS) || '[]');
+};
+
+export const saveGoal = (goal: any) => {
+  const goals = getGoals();
+  const now = new Date().toISOString();
+  goal.id = goal.id || 'goal-' + Date.now();
+  goal.createdAt = goal.createdAt || now;
+  goal.updatedAt = now;
+  const idx = goals.findIndex((g: any) => g.id === goal.id);
+  if (idx >= 0) goals[idx] = goal;
+  else goals.push(goal);
+  localStorage.setItem(STORAGE_KEYS_GOALS, JSON.stringify(goals));
+};
+
+export const deleteGoal = (id: string) => {
+  const goals = getGoals().filter((g: any) => g.id !== id);
+  localStorage.setItem(STORAGE_KEYS_GOALS, JSON.stringify(goals));
+};
+
+export const getAccountBalanceById = (accountId: string) => {
+  return getAccountBalance(accountId);
 };
 
 export const formatNumber = (num: number) => num.toLocaleString('ru-RU', { minimumFractionDigits: 2 });

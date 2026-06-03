@@ -10,16 +10,16 @@
     <q-drawer v-model="drawer" show-if-above bordered>
       <q-list>
         <q-item-label header>Меню</q-item-label>
-        <q-item clickable v-ripple to="/dashboard"><q-item-section avatar><q-icon name="dashboard" /></q-item-section><q-item-section>Дашборд</q-item-section></q-item>
-        <q-item clickable v-ripple to="/accounts"><q-item-section avatar><q-icon name="account_balance_wallet" /></q-item-section><q-item-section>Счета</q-item-section></q-item>
-        <q-item clickable v-ripple to="/transactions"><q-item-section avatar><q-icon name="receipt_long" /></q-item-section><q-item-section>Операции</q-item-section></q-item>
-        <q-item clickable v-ripple to="/categories"><q-item-section avatar><q-icon name="category" /></q-item-section><q-item-section>Категории</q-item-section></q-item>
-        <q-item clickable v-ripple to="/analytics"><q-item-section avatar><q-icon name="analytics" /></q-item-section><q-item-section>Аналитика</q-item-section></q-item>
-        <q-item clickable v-ripple to="/budget"><q-item-section avatar><q-icon name="savings" /></q-item-section><q-item-section>Бюджет</q-item-section></q-item>
-        <q-item clickable v-ripple to="/settings"><q-item-section avatar><q-icon name="settings" /></q-item-section><q-item-section>Настройки</q-item-section></q-item>
+        <q-item clickable v-ripple :to="item.to" @click="drawer = false" v-for="item in menuItems" :key="item.to">
+          <q-item-section avatar><q-icon :name="item.icon" /></q-item-section>
+          <q-item-section>{{ item.label }}</q-item-section>
+        </q-item>
       </q-list>
     </q-drawer>
     <q-page-container><router-view /></q-page-container>
+    <q-page-sticky position="bottom-right" :offset="[18, 18]">
+      <q-btn round color="primary" size="lg" icon="add" @click="handleFabClick" />
+    </q-page-sticky>
   </q-layout>
 </template>
 
@@ -30,4 +30,24 @@ import { useAuthStore } from 'stores/auth';
 const drawer = ref(false);
 const router = useRouter();
 const authStore = useAuthStore();
+const fabTarget = ref('/transactions');
+
+const handleFabClick = () => {
+  if (router.currentRoute.value.path === '/transactions') {
+    document.dispatchEvent(new CustomEvent('open-add-transaction'));
+  } else {
+    router.push('/transactions');
+  }
+};
+
+const menuItems = [
+  { to: '/dashboard', icon: 'dashboard', label: 'Дашборд' },
+  { to: '/accounts', icon: 'account_balance_wallet', label: 'Счета' },
+  { to: '/transactions', icon: 'receipt_long', label: 'Операции' },
+  { to: '/categories', icon: 'category', label: 'Категории' },
+  { to: '/analytics', icon: 'analytics', label: 'Аналитика' },
+  { to: '/budget', icon: 'savings', label: 'Бюджет' },
+  { to: '/goals', icon: 'flag', label: 'Цели' },
+  { to: '/settings', icon: 'settings', label: 'Настройки' }
+];
 </script>
