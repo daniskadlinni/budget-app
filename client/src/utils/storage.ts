@@ -4,7 +4,8 @@ const STORAGE_KEYS = {
   transactions: 'budget_transactions'
 };
 
-const API_URL = 'https://budget-app-production-8b4d.up.railway.app/api/sync';
+const API_URL = 'https://zxrpluuneassstffzday.supabase.co/functions/v1/sync-data';
+const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4cnBsdXVuZWFzc3N0ZmZ6ZGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0OTI5MDMsImV4cCI6MjA5NjA2ODkwM30.sjXnnVnF1cyENt5x9yTH1_v7SPXul4603aSZmXuqmgc';
 
 const defaultAccounts = [
   { id: 'general-cash', name: 'Общий — Наличные', type: 'cash', balance: 0, currency: 'RUB' },
@@ -39,7 +40,7 @@ const syncToServer = async () => {
     };
     await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
       body: JSON.stringify(data)
     });
   } catch (e) {
@@ -49,7 +50,9 @@ const syncToServer = async () => {
 
 const syncFromServer = async () => {
   try {
-    const res = await fetch(API_URL);
+    const res = await fetch(API_URL, {
+      headers: { 'Authorization': `Bearer ${API_KEY}` }
+    });
     const data = await res.json();
     if (data.accounts) localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(data.accounts));
     if (data.categories) localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(data.categories));
