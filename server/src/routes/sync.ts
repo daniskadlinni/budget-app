@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 const prisma = new PrismaClient();
 
-router.post('/sync', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const { accounts, categories, transactions, budgets, goals, subscriptions } = req.body;
 
@@ -24,7 +24,7 @@ router.post('/sync', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/sync', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const records = await prisma.syncData.findMany();
     const data: Record<string, any> = {};
