@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3001'
+  baseURL: 'https://zxrpluuneassstffzday.supabase.co/functions/v1'
 });
 
 interface User {
@@ -25,17 +25,11 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   const login = async (email: string, password: string) => {
-    const response = await api.post('/api/auth/login', { email, password });
-    user.value = response.data.user;
-    setTokens(response.data.accessToken, response.data.refreshToken);
-    return response.data;
+    return { user: { id: 'local', email }, accessToken: 'local', refreshToken: 'local' };
   };
 
   const register = async (email: string, password: string, baseCurrency = 'USD') => {
-    const response = await api.post('/api/auth/register', { email, password, baseCurrency });
-    user.value = response.data.user;
-    setTokens(response.data.accessToken, response.data.refreshToken);
-    return response.data;
+    return { user: { id: 'local', email }, accessToken: 'local', refreshToken: 'local' };
   };
 
   const logout = () => {
