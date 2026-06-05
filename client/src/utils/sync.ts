@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3001/api/sync';
+const API_URL = 'https://zxrpluuneassstffzday.supabase.co/functions/v1/sync-data';
 
 export const syncToServer = async () => {
   try {
