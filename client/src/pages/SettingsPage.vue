@@ -31,6 +31,7 @@
 import { ref } from 'vue';
 import { useQuasar } from 'quasar';
 import { exportData as exp, importData as imp, initStorage } from 'src/utils/storage';
+import { clearTransactionsOnServer } from 'src/utils/sync';
 
 const $q = useQuasar();
 const darkMode = ref($q.dark.isActive);
@@ -73,14 +74,22 @@ const importData = (e: Event) => {
 
 const confirmReset = () => {
   $q.dialog({
-    title: 'Сброс данных',
-    message: 'Удалить все данные? Это необратимо.',
+    title: 'Сброс операций',
+    message: 'Удалить все операции? Это необратимо.',
     cancel: true,
     persistent: true
   }).onOk(() => {
-    localStorage.clear();
-    initStorage();
-    location.reload();
+    $q.dialog({
+      title: 'ВНИМАНИЕ',
+      message: 'Точно удалить ВСЕ операции? Это действие нельзя отменить!',
+      cancel: true,
+      persistent: true
+    }).onOk(async () => {
+      localStorage.setItem('budget_transactions', '[]');
+      await clearTransactionsOnServer();
+      $q.notify({ message: 'Операции удалены', color: 'positive' });
+      setTimeout(() => location.reload(), 1000);
+    });
   });
 };
 </script>

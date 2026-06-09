@@ -7,6 +7,7 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 function mergeArrays(local: any[], server: any[], idField = 'id') {
+  if (local.length === 0) return local;
   const map = new Map();
   server?.forEach((item) => map.set(item[idField], item));
   local?.forEach((item) => {
@@ -43,7 +44,7 @@ serve(async (req) => {
         const merged = mergeArrays(categories, serverCategories);
         await supabase.from("sync_data").upsert({ key: "categories", value: JSON.stringify(merged) }, { onConflict: "key" });
       }
-      if (transactions) {
+      if (transactions !== undefined) {
         const serverTransactions = JSON.parse(existing?.find(r => r.key === 'transactions')?.value || '[]');
         const merged = mergeArrays(transactions, serverTransactions);
         await supabase.from("sync_data").upsert({ key: "transactions", value: JSON.stringify(merged) }, { onConflict: "key" });

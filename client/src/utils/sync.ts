@@ -45,3 +45,23 @@ export const autoSync = () => {
     syncToServer();
   }
 };
+
+export const clearTransactionsOnServer = async () => {
+  try {
+    const data = {
+      accounts: JSON.parse(localStorage.getItem('budget_accounts') || '[]'),
+      categories: JSON.parse(localStorage.getItem('budget_categories') || '[]'),
+      transactions: [],
+      budgets: JSON.parse(localStorage.getItem('budget_limits') || '[]'),
+      goals: JSON.parse(localStorage.getItem('budget_goals') || '[]'),
+      subscriptions: JSON.parse(localStorage.getItem('budget_subscriptions') || '[]')
+    };
+    await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch (e) {
+    console.error('Clear transactions error:', e);
+  }
+};
