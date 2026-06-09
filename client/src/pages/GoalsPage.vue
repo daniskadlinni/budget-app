@@ -111,6 +111,14 @@ const accountOpts = [
   { label: 'Накопительный', value: 'savings' }
 ];
 
+onMounted(() => {
+  goals.value = getGoals();
+
+  window.addEventListener('dataUpdated', () => {
+    goals.value = getGoals();
+  });
+});
+
 const doFund = () => {
   if (!fundAmount.value || fundAmount.value <= 0) return;
   if (fundAmount.value > getAccountBalance(fundAccount.value)) {

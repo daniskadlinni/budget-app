@@ -108,5 +108,9 @@ const removeCategory = (id: string) => {
 
 onMounted(() => {
   categories.value = getCategories();
+
+  window.addEventListener('dataUpdated', () => {
+    categories.value = getCategories();
+  });
 });
 </script>

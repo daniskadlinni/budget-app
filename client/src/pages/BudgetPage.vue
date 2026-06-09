@@ -104,5 +104,9 @@ const remove = (id: string) => {
 onMounted(() => {
   categories.value = getCategories();
   loadBudgets();
+
+  window.addEventListener('dataUpdated', () => {
+    budgets.value = getBudgets();
+  });
 });
 </script>

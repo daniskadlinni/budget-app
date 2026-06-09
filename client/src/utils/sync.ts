@@ -24,12 +24,12 @@ export const syncFromServer = async () => {
   try {
     const res = await fetch(API_URL);
     const data = await res.json();
-    if (data.accounts) localStorage.setItem('budget_accounts', JSON.stringify(data.accounts));
-    if (data.categories) localStorage.setItem('budget_categories', JSON.stringify(data.categories));
-    if (data.transactions) localStorage.setItem('budget_transactions', JSON.stringify(data.transactions));
-    if (data.budgets) localStorage.setItem('budget_limits', JSON.stringify(data.budgets));
-    if (data.goals) localStorage.setItem('budget_goals', JSON.stringify(data.goals));
-    if (data.subscriptions) localStorage.setItem('budget_subscriptions', JSON.stringify(data.subscriptions));
+    if (data.accounts && data.accounts.length > 0) localStorage.setItem('budget_accounts', JSON.stringify(data.accounts));
+    if (data.categories && data.categories.length > 0) localStorage.setItem('budget_categories', JSON.stringify(data.categories));
+    if (data.transactions && data.transactions.length > 0) localStorage.setItem('budget_transactions', JSON.stringify(data.transactions));
+    if (data.budgets && data.budgets.length > 0) localStorage.setItem('budget_limits', JSON.stringify(data.budgets));
+    if (data.goals && data.goals.length > 0) localStorage.setItem('budget_goals', JSON.stringify(data.goals));
+    if (data.subscriptions && data.subscriptions.length > 0) localStorage.setItem('budget_subscriptions', JSON.stringify(data.subscriptions));
     return data;
   } catch (e) {
     console.error('Fetch error:', e);

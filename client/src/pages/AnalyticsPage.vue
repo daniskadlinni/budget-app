@@ -215,5 +215,9 @@ const exportCSV = () => {
 onMounted(() => {
   transactions.value = getTransactions();
   categories.value = getCategories();
+
+  window.addEventListener('dataUpdated', () => {
+    transactions.value = getTransactions();
+  });
 });
 </script>

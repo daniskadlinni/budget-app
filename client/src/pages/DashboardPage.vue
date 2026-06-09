@@ -87,5 +87,8 @@ const formatDate = (d: string) => new Date(d).toLocaleDateString('ru-RU');
 
 onMounted(() => {
   transactions.value = getTransactions();
+  window.addEventListener('dataUpdated', () => {
+    transactions.value = getTransactions();
+  });
 });
 </script>

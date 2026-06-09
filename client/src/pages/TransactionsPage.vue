@@ -178,6 +178,11 @@ onMounted(() => {
   });
 
   document.addEventListener('open-add-transaction', openDialog);
+
+  window.addEventListener('dataUpdated', () => {
+    categories.value = getCategories();
+    transactions.value = getTransactions();
+  });
 });
 
 onUnmounted(() => {

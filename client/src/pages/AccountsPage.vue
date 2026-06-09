@@ -92,5 +92,9 @@ onMounted(() => {
   initStorage();
   accounts.value = getAccounts();
   setInterval(() => version.value++, 1000);
+
+  window.addEventListener('dataUpdated', () => {
+    accounts.value = getAccounts();
+  });
 });
 </script>
