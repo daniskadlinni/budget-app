@@ -78,7 +78,7 @@ const handleShoppingFabClick = () => {
   } else if (path === '/stores') {
     document.dispatchEvent(new CustomEvent('open-add-store'));
   } else {
-    router.push('/shopping');
+    document.dispatchEvent(new CustomEvent('open-add-shopping'));
   }
 };
 
