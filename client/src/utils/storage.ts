@@ -224,4 +224,139 @@ export const getAccountBalance = (accountId: string) => {
   return balance;
 };
 
+const STORAGE_KEYS_STORES = 'budget_stores';
+export const getStores = () => JSON.parse(localStorage.getItem(STORAGE_KEYS_STORES) || '[]');
+
+export const saveStore = (store: any) => {
+  const stores = getStores();
+  const now = new Date().toISOString();
+  store.id = store.id || 'store-' + Date.now();
+  store.createdAt = store.createdAt || now;
+  store.updatedAt = now;
+  const idx = stores.findIndex((s: any) => s.id === store.id);
+  if (idx >= 0) stores[idx] = store;
+  else stores.push(store);
+  localStorage.setItem(STORAGE_KEYS_STORES, JSON.stringify(stores));
+  syncToServer();
+};
+
+export const deleteStore = (id: string) => {
+  const stores = getStores().filter((s: any) => s.id !== id);
+  localStorage.setItem(STORAGE_KEYS_STORES, JSON.stringify(stores));
+  syncToServer();
+};
+
+const STORAGE_KEYS_SHOPPING = 'budget_shopping';
+export const getShoppingItems = () => JSON.parse(localStorage.getItem(STORAGE_KEYS_SHOPPING) || '[]');
+
+export const saveShoppingItem = (item: any) => {
+  const items = getShoppingItems();
+  const now = new Date().toISOString();
+  item.id = item.id || 'shop-' + Date.now();
+  item.createdAt = item.createdAt || now;
+  item.updatedAt = now;
+  const idx = items.findIndex((i: any) => i.id === item.id);
+  if (idx >= 0) items[idx] = item;
+  else items.push(item);
+  localStorage.setItem(STORAGE_KEYS_SHOPPING, JSON.stringify(items));
+  syncToServer();
+};
+
+export const deleteShoppingItem = (id: string) => {
+  const items = getShoppingItems().filter((i: any) => i.id !== id);
+  localStorage.setItem(STORAGE_KEYS_SHOPPING, JSON.stringify(items));
+  syncToServer();
+};
+
+export const markShoppingItemPurchased = (id: string, actualPrice: number, accountId: string) => {
+  const items = getShoppingItems();
+  const idx = items.findIndex((i: any) => i.id === id);
+  if (idx >= 0) {
+    items[idx].purchased = true;
+    items[idx].actualPrice = actualPrice;
+    items[idx].purchasedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEYS_SHOPPING, JSON.stringify(items));
+
+    const transaction = {
+      id: 't-' + Date.now(),
+      accountId,
+      type: 'expense',
+      amount: actualPrice,
+      date: new Date().toISOString().split('T')[0],
+      note: items[idx].name,
+      categoryId: 'cat-shopping',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    saveTransaction(transaction);
+  }
+  syncToServer();
+};
+
+const STORAGE_KEYS_PRODUCTS = 'budget_products';
+export const getProducts = () => JSON.parse(localStorage.getItem(STORAGE_KEYS_PRODUCTS) || '[]');
+
+export const saveProduct = (product: any) => {
+  const products = getProducts();
+  const now = new Date().toISOString();
+  product.id = product.id || 'prod-' + Date.now();
+  product.createdAt = product.createdAt || now;
+  product.updatedAt = now;
+  const idx = products.findIndex((p: any) => p.id === product.id);
+  if (idx >= 0) products[idx] = product;
+  else products.push(product);
+  localStorage.setItem(STORAGE_KEYS_PRODUCTS, JSON.stringify(products));
+  syncToServer();
+};
+
+export const deleteProduct = (id: string) => {
+  const products = getProducts().filter((p: any) => p.id !== id);
+  localStorage.setItem(STORAGE_KEYS_PRODUCTS, JSON.stringify(products));
+  syncToServer();
+};
+
+export const addProductToShopping = (productId: string, storeId: string, plannedPrice: number) => {
+  const product = getProducts().find((p: any) => p.id === productId);
+  if (product) {
+    saveShoppingItem({
+      name: product.name,
+      storeId: storeId || product.storeId,
+      plannedPrice: plannedPrice || product.lastPrice,
+      productId: product.id
+    });
+  }
+};
+
+const STORAGE_KEYS_REMINDERS = 'budget_reminders';
+export const getReminders = () => JSON.parse(localStorage.getItem(STORAGE_KEYS_REMINDERS) || '[]');
+
+export const saveReminder = (reminder: any) => {
+  const reminders = getReminders();
+  const now = new Date().toISOString();
+  reminder.id = reminder.id || 'rem-' + Date.now();
+  reminder.createdAt = reminder.createdAt || now;
+  reminder.updatedAt = now;
+  const idx = reminders.findIndex((r: any) => r.id === reminder.id);
+  if (idx >= 0) reminders[idx] = reminder;
+  else reminders.push(reminder);
+  localStorage.setItem(STORAGE_KEYS_REMINDERS, JSON.stringify(reminders));
+  syncToServer();
+};
+
+export const deleteReminder = (id: string) => {
+  const reminders = getReminders().filter((r: any) => r.id !== id);
+  localStorage.setItem(STORAGE_KEYS_REMINDERS, JSON.stringify(reminders));
+  syncToServer();
+};
+
+export const toggleReminderActive = (id: string) => {
+  const reminders = getReminders();
+  const idx = reminders.findIndex((r: any) => r.id === id);
+  if (idx >= 0) {
+    reminders[idx].active = !reminders[idx].active;
+    localStorage.setItem(STORAGE_KEYS_REMINDERS, JSON.stringify(reminders));
+    syncToServer();
+  }
+};
+
 export { syncFromServer };
