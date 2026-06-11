@@ -37,7 +37,7 @@
       </q-list>
     </q-drawer>
     <q-page-container><router-view /></q-page-container>
-    <q-page-sticky v-if="!isShopping" position="bottom-left" :offset="[18, 18]">
+    <q-page-sticky v-if="!isShopping && route.path !== '/dashboard'" position="bottom-left" :offset="[18, 18]">
       <q-btn round color="primary" size="lg" icon="add" @click="handleFabClick" />
     </q-page-sticky>
     <q-page-sticky v-if="isShopping" position="bottom-left" :offset="[18, 18]">
