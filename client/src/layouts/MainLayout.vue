@@ -68,6 +68,7 @@ const handleFabClick = () => {
 };
 
 const handleShoppingFabClick = () => {
+  alert('FAB clicked! Path: ' + router.currentRoute.value.path);
   const path = router.currentRoute.value.path;
   if (path === '/shopping') {
     document.dispatchEvent(new CustomEvent('open-add-shopping'));
@@ -84,7 +85,7 @@ const handleShoppingFabClick = () => {
 
 onMounted(() => {
   (window as any).testFab = () => {
-    alert('FAB works! Path: ' + router.currentRoute.value.path);
+    handleShoppingFabClick();
   };
 });
 
