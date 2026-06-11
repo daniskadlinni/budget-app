@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from 'stores/auth';
 const drawer = ref(false);
@@ -81,6 +81,12 @@ const handleShoppingFabClick = () => {
     document.dispatchEvent(new CustomEvent('open-add-shopping'));
   }
 };
+
+onMounted(() => {
+  (window as any).testFab = () => {
+    alert('FAB works! Path: ' + router.currentRoute.value.path);
+  };
+});
 
 const budgetMenuItems = [
   { to: '/dashboard', icon: 'dashboard', label: 'Дашборд' },
