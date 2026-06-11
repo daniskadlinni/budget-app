@@ -85,7 +85,7 @@ const handleShoppingFabClick = () => {
 
 onMounted(() => {
   (window as any).testFab = () => {
-    handleShoppingFabClick();
+    document.dispatchEvent(new CustomEvent('open-add-product'));
   };
 });
 
