@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory } from 'vue-router';
 
 const routes = [
   {
@@ -13,6 +13,10 @@ const routes = [
       { path: 'analytics', component: () => import('pages/AnalyticsPage.vue') },
       { path: 'budget', component: () => import('pages/BudgetPage.vue') },
       { path: 'goals', component: () => import('pages/GoalsPage.vue') },
+      { path: 'shopping', component: () => import('pages/ShoppingListPage.vue') },
+      { path: 'products', component: () => import('pages/ProductsPage.vue') },
+      { path: 'reminders', component: () => import('pages/RemindersPage.vue') },
+      { path: 'stores', component: () => import('pages/StoresPage.vue') },
       { path: 'settings', component: () => import('pages/SettingsPage.vue') }
     ]
   },
@@ -23,7 +27,7 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes
 });
 
