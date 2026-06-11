@@ -52,7 +52,7 @@
         <q-card-section>
           <q-form class="q-gutter-md">
             <q-input v-model="form.name" label="Название" filled />
-            <q-select v-model="form.type" :options="['expense','income']" label="Тип" emit-value map-options filled :disable="!!editing" />
+            <q-select v-model="form.type" :options="[{label:'Расход',value:'expense'},{label:'Доход',value:'income'}]" label="Тип" emit-value map-options filled :disable="!!editing" />
             <div class="row items-center q-gutter-sm">
               <div class="text-caption">Цвет:</div>
               <q-btn v-for="c in colors" :key="c" :style="{ backgroundColor: c }" round size="sm" :flat="form.color !== c" @click="form.color = c" />
