@@ -64,11 +64,7 @@ const authStore = useAuthStore();
 const isShopping = computed(() => ['/shopping', '/products', '/reminders', '/stores'].some(p => route.path.startsWith(p)));
 
 const handleFabClick = () => {
-  if (router.currentRoute.value.path === '/transactions') {
-    document.dispatchEvent(new CustomEvent('open-add-transaction'));
-  } else {
-    router.push('/transactions');
-  }
+  document.dispatchEvent(new CustomEvent('open-add-transaction'));
 };
 
 const handleShoppingFabClick = () => {
