@@ -4,15 +4,28 @@
 
     <div v-if="stores.length > 0" class="q-mb-md">
       <div ref="mapContainer" style="width: 100%; height: 300px; border-radius: 10px;"></div>
+      <div v-if="userLocation" class="text-caption text-grey q-mt-sm">
+        Вы здесь: {{ userLocation.lat.toFixed(4) }}, {{ userLocation.lon.toFixed(4) }}
+        <q-btn flat dense size="sm" label="Обновить" @click="getUserLocation" />
+      </div>
+      <div v-else class="q-mt-sm">
+        <q-btn flat dense color="primary" label="Показать ближайшие" @click="getUserLocation" />
+      </div>
     </div>
 
     <q-btn color="primary" icon="add" label="Добавить магазин" class="q-mb-md" @click="openAddDialog" />
 
     <q-list separator>
-      <q-item v-for="store in stores" :key="store.id">
+      <q-item v-for="store in sortedStores" :key="store.id">
+        <q-item-section avatar>
+          <q-icon name="store" color="primary" />
+        </q-item-section>
         <q-item-section>
           <q-item-label>{{ store.name }}</q-item-label>
           <q-item-label caption v-if="store.address">{{ store.address }}</q-item-label>
+          <q-item-label caption v-if="store.distance !== undefined" class="text-positive">
+            ~{{ formatDistance(store.distance) }}
+          </q-item-label>
           <q-item-label caption>Товаров: {{ getProductCount(store.id) }}</q-item-label>
         </q-item-section>
         <q-item-section side>
@@ -30,9 +43,27 @@
         <q-card-section><div class="text-h6">{{ editing ? 'Редактировать' : 'Добавить магазин' }}</div></q-card-section>
         <q-card-section>
           <q-input v-model="form.name" label="Название магазина" filled />
-          <q-input v-model="form.address" label="Адрес" filled class="q-mt-sm" @focus="searchAddress" />
+          <q-select
+            v-model="form.address"
+            label="Адрес"
+            filled
+            class="q-mt-sm"
+            use-input
+            hide-selected
+            fill-input
+            input-debounce="500"
+            :options="addressOptions"
+            @filter="searchAddress"
+            @update:model-value="selectAddress"
+          >
+            <template v-slot:no-option>
+              <q-item>
+                <q-item-section class="text-grey">Введите адрес для поиска</q-item-section>
+              </q-item>
+            </template>
+          </q-select>
           <div v-if="form.coordinates" class="text-caption text-positive q-mt-sm">
-            Координаты: {{ form.coordinates.lat.toFixed(4) }}, {{ form.coordinates.lon.toFixed(4) }}
+            Найдено: {{ form.coordinates.lat.toFixed(4) }}, {{ form.coordinates.lon.toFixed(4) }}
           </div>
         </q-card-section>
         <q-card-actions align="right">
@@ -45,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { useQuasar } from 'quasar';
 import { getStores, saveStore as sStore, deleteStore as dStore, getProducts } from 'src/utils/storage';
 
@@ -56,12 +87,53 @@ const products = ref<any[]>([]);
 const showDialog = ref(false);
 const editing = ref(false);
 const mapContainer = ref<HTMLElement | null>(null);
+const addressOptions = ref<string[]>([]);
 let map: any = null;
 let searchControl: any = null;
+let userLocation = ref<{ lat: number; lon: number } | null>(null);
 
 const form = ref({ id: '', name: '', address: '', coordinates: null as { lat: number; lon: number } | null });
 
 const getProductCount = (storeId: string) => products.value.filter(p => p.storeId === storeId).length;
+
+const sortedStores = computed(() => {
+  if (!userLocation.value) return stores.value;
+
+  const storesWithDistance = stores.value.map(store => {
+    if (store.coordinates) {
+      const dx = store.coordinates.lat - userLocation.value!.lat;
+      const dy = store.coordinates.lon - userLocation.value!.lon;
+      store.distance = Math.sqrt(dx * dx + dy * dy) * 111;
+    }
+    return store;
+  });
+
+  return storesWithDistance.sort((a, b) => (a.distance || 999) - (b.distance || 999));
+});
+
+const formatDistance = (km: number) => {
+  if (km < 1) return `${Math.round(km * 1000)} м`;
+  return `${km.toFixed(1)} км`;
+};
+
+const getUserLocation = () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        userLocation.value = {
+          lat: position.coords.latitude,
+          lon: position.coords.longitude
+        };
+        updateMap();
+      },
+      (error) => {
+        $q.notify({ message: 'Не удалось определить местоположение', color: 'negative' });
+      }
+    );
+  } else {
+    $q.notify({ message: 'Геолокация не поддерживается', color: 'negative' });
+  }
+};
 
 const openAddDialog = () => {
   editing.value = false;
@@ -80,23 +152,54 @@ const saveStore = () => {
   sStore(form.value);
   stores.value = getStores();
   showDialog.value = false;
-  updateMap();
+  nextTick(updateMap);
 };
 
 const deleteStore = (id: string) => {
   $q.dialog({ title: 'Удалить', message: 'Удалить магазин?', cancel: true }).onOk(() => {
     dStore(id);
     stores.value = getStores();
-    updateMap();
+    nextTick(updateMap);
   });
+};
+
+const searchAddress = (val: string, update: Function) => {
+  if (!val || val.length < 3) {
+    update(() => { addressOptions.value = []; });
+    return;
+  }
+
+  if (typeof window.ymaps !== 'undefined') {
+    window.ymaps.geocode(val, { results: 5 }).then((res: any) => {
+      const results = res.geoObjects.items.map((item: any) => ({
+        value: item.properties.get('text'),
+        data: item
+      }));
+      update(() => {
+        addressOptions.value = results.map((r: any) => r.value);
+      });
+    });
+  }
+};
+
+const selectAddress = (address: string) => {
+  if (typeof window.ymaps !== 'undefined' && address) {
+    window.ymaps.geocode(address).then((res: any) => {
+      const first = res.geoObjects.get(0);
+      if (first) {
+        const coords = first.geometry.getCoordinates();
+        form.value.coordinates = { lat: coords[0], lon: coords[1] };
+      }
+    });
+  }
 };
 
 const initMap = () => {
   if (!mapContainer.value || typeof window.ymaps === 'undefined') return;
 
   map = new window.ymaps.Map(mapContainer.value, {
-    center: [55.755819, 37.617644],
-    zoom: 10
+    center: userLocation.value ? [userLocation.value.lat, userLocation.value.lon] : [55.755819, 37.617644],
+    zoom: 12
   });
 
   searchControl = new window.ymaps.control.SearchControl({ options: { noCentering: true } });
@@ -109,6 +212,15 @@ const updateMap = () => {
   if (!map || typeof window.ymaps === 'undefined') return;
 
   map.geoObjects.removeAll();
+
+  if (userLocation.value) {
+    const userPlacemark = new window.ymaps.Placemark(
+      [userLocation.value.lat, userLocation.value.lon],
+      { balloonContentHeader: 'Вы здесь' },
+      { preset: 'islands#redPersonIcon' }
+    );
+    map.geoObjects.add(userPlacemark);
+  }
 
   stores.value.forEach(store => {
     if (store.coordinates) {
@@ -129,20 +241,6 @@ const updateMap = () => {
   }
 };
 
-const searchAddress = () => {
-  if (!showDialog.value || !searchControl) return;
-
-  searchControl.events.add('resultselect', (e: any) => {
-    const results = searchControl.getResultsArray();
-    const selected = e.get('index');
-    if (results[selected]) {
-      const coords = results[selected].geometry.getCoordinates();
-      form.value.address = results[selected].properties.get('text');
-      form.value.coordinates = { lat: coords[0], lon: coords[1] };
-    }
-  });
-};
-
 onMounted(() => {
   stores.value = getStores();
   products.value = getProducts();
@@ -150,7 +248,7 @@ onMounted(() => {
   window.addEventListener('dataUpdated', () => {
     stores.value = getStores();
     products.value = getProducts();
-    updateMap();
+    nextTick(updateMap);
   });
   window.addEventListener('open-add-store', () => openAddDialog());
 
