@@ -51,7 +51,7 @@ const $q = useQuasar();
 const accounts = ref<any[]>([]);
 const version = ref(0);
 const showTransfer = ref(false);
-const transfer = ref({ from: 'general-cash', to: 'general-card', amount: 0 });
+const transfer = ref({ from: 'general-cash', to: 'general-card', amount: '' });
 
 const accountOpts = [
   { label: 'Общий — Наличные', value: 'general-cash' },

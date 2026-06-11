@@ -66,11 +66,11 @@ import { v4 as uuidv4 } from 'uuid';
 const goals = ref<any[]>([]);
 const showDialog = ref(false);
 const editing = ref<any>(null);
-const form = ref({ name: '', target: 0, current: 0, deadline: '' });
+const form = ref({ name: '', target: '', current: '', deadline: '' });
 
 const openAdd = () => {
   editing.value = null;
-  form.value = { name: '', target: 0, current: 0, deadline: '' };
+  form.value = { name: '', target: '', current: '', deadline: '' };
   showDialog.value = true;
 };
 
@@ -102,7 +102,7 @@ const formatDate = (d: string) => new Date(d).toLocaleDateString('ru-RU');
 
 const showFund = ref(false);
 const fundTarget = ref<any>(null);
-const fundAmount = ref(0);
+const fundAmount = ref('');
 const fundAccount = ref('general-cash');
 
 const accountOpts = [

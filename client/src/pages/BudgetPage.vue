@@ -56,7 +56,7 @@ const budgets = ref<any[]>([]);
 const categories = ref<any[]>([]);
 const showDialog = ref(false);
 const editing = ref<any>(null);
-const form = ref({ name: '', limit: 0, categoryIds: [] as string[] });
+const form = ref({ name: '', limit: '', categoryIds: [] as string[] });
 
 const categoryOpts = computed(() =>
   categories.value
@@ -79,7 +79,7 @@ const loadBudgets = () => {
 
 const openAdd = () => {
   editing.value = null;
-  form.value = { name: '', limit: 0, categoryIds: [] };
+  form.value = { name: '', limit: '', categoryIds: [] };
   showDialog.value = true;
 };
 

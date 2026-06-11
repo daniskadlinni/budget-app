@@ -104,9 +104,9 @@ const showBatchPurchaseDialog = ref(false);
 const editingItem = ref(false);
 const purchasingItem = ref(null);
 
-const itemForm = ref({ id: '', name: '', storeId: '', plannedPrice: 0, productId: '' });
-const purchaseForm = ref({ actualPrice: 0, accountId: 'general-cash' });
-const batchPurchaseForm = ref({ actualPrice: 0, accountId: 'general-cash' });
+const itemForm = ref({ id: '', name: '', storeId: '', plannedPrice: '', productId: '' });
+const purchaseForm = ref({ actualPrice: '', accountId: 'general-cash' });
+const batchPurchaseForm = ref({ actualPrice: '', accountId: 'general-cash' });
 
 const storeOptions = computed(() => stores.value.map(s => ({ label: s.name, value: s.id })));
 const productOptions = computed(() => products.value.map(p => ({ label: p.name, value: p.id })));
@@ -122,7 +122,7 @@ const getStoreName = (id: string) => stores.value.find(s => s.id === id)?.name |
 
 const openAddDialog = () => {
   editingItem.value = false;
-  itemForm.value = { id: '', name: '', storeId: stores.value[0]?.id || '', plannedPrice: 0, productId: '' };
+  itemForm.value = { id: '', name: '', storeId: stores.value[0]?.id || '', plannedPrice: '', productId: '' };
   showItemDialog.value = true;
 };
 
@@ -169,7 +169,7 @@ const toggleSelect = (id: string) => {
 };
 
 const openBatchPurchaseDialog = () => {
-  batchPurchaseForm.value = { actualPrice: 0, accountId: 'general-cash' };
+  batchPurchaseForm.value = { actualPrice: '', accountId: 'general-cash' };
   showBatchPurchaseDialog.value = true;
 };
 

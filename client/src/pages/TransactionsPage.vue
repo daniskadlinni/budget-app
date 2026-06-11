@@ -73,7 +73,7 @@ const sortOptions = [
   { label: 'По сумме ↑', value: 'amount-asc' }
 ];
 
-const form = ref({ type: 'expense', accountId: 'general-cash', fromId: 'general-cash', toId: 'general-card', categoryId: '', amount: 0, date: new Date().toISOString().split('T')[0], note: '' });
+const form = ref({ type: 'expense', accountId: 'general-cash', fromId: 'general-cash', toId: 'general-card', categoryId: '', amount: '', date: new Date().toISOString().split('T')[0], note: '' });
 
 const types = [
   { label: 'Расход', value: 'expense' },
@@ -162,7 +162,7 @@ const remove = (id: string) => {
 };
 
 const openDialog = () => {
-  form.value = { type: 'expense', accountId: 'general-cash', fromId: 'general-cash', toId: 'general-card', categoryId: '', amount: 0, date: new Date().toISOString().split('T')[0], note: '' };
+  form.value = { type: 'expense', accountId: 'general-cash', fromId: 'general-cash', toId: 'general-card', categoryId: '', amount: '', date: new Date().toISOString().split('T')[0], note: '' };
   showDialog.value = true;
 };
 

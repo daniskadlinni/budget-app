@@ -51,7 +51,7 @@ const products = ref<any[]>([]);
 const stores = ref<any[]>([]);
 const showDialog = ref(false);
 const editing = ref(false);
-const form = ref({ id: '', name: '', storeId: '', plannedPrice: 0, lastPrice: 0 });
+const form = ref({ id: '', name: '', storeId: '', plannedPrice: '', lastPrice: '' });
 
 const storeOptions = computed(() => stores.value.map(s => ({ label: s.name, value: s.id })));
 
@@ -59,7 +59,7 @@ const getStoreName = (id: string) => stores.value.find(s => s.id === id)?.name |
 
 const openAddDialog = () => {
   editing.value = false;
-  form.value = { id: '', name: '', plannedPrice: 0, lastPrice: 0 };
+  form.value = { id: '', name: '', plannedPrice: '', lastPrice: '' };
   showDialog.value = true;
 };
 
