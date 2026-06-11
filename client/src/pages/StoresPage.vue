@@ -13,7 +13,10 @@
       </div>
     </div>
 
-    <q-btn color="primary" icon="add" label="Добавить магазин" class="q-mb-md" @click="openAddDialog" />
+    <div class="q-mb-md q-gutter-sm">
+      <q-btn color="primary" icon="add" label="Добавить магазин" @click="openAddDialog" />
+      <q-btn color="secondary" icon="my_location" label="Добавить здесь" @click="addAtCurrentLocation" :disable="!userLocation" />
+    </div>
 
     <q-list separator>
       <q-item v-for="store in sortedStores" :key="store.id">
@@ -141,6 +144,18 @@ const openAddDialog = () => {
   showDialog.value = true;
 };
 
+const addAtCurrentLocation = () => {
+  if (!userLocation.value) return;
+  editing.value = false;
+  form.value = {
+    id: '',
+    name: '',
+    address: '',
+    coordinates: { lat: userLocation.value.lat, lon: userLocation.value.lon }
+  };
+  showDialog.value = true;
+};
+
 const editStore = (store: any) => {
   editing.value = true;
   form.value = { ...store, coordinates: store.coordinates || null };
@@ -205,7 +220,46 @@ const initMap = () => {
   searchControl = new window.ymaps.control.SearchControl({ options: { noCentering: true } });
   map.controls.add(searchControl);
 
+  map.geoObjects.events.add('click', (e: any) => {
+    const target = e.get('target');
+    if (target && target.properties && userLocation.value) {
+      const coords = target.geometry.getCoordinates();
+      showRoute(coords);
+    }
+  });
+
   updateMap();
+};
+
+const showRoute = (toCoords: [number, number]) => {
+  if (!userLocation.value || !map) return;
+
+  map.geoObjects.removeAll();
+
+  const userPlacemark = new window.ymaps.Placemark(
+    [userLocation.value.lat, userLocation.value.lon],
+    { balloonContentHeader: 'Вы здесь' },
+    { preset: 'islands#redPersonIcon' }
+  );
+
+  const storePlacemark = new window.ymaps.Placemark(toCoords, { preset: 'islands#blueShoppingIcon' });
+
+  map.geoObjects.add(userPlacemark);
+  map.geoObjects.add(storePlacemark);
+
+  if (typeof window.ymaps !== 'undefined') {
+    window.ymaps.route([toCoords, [userLocation.value.lat, userLocation.value.lon]], {
+      mapStateAutoApply: true
+    }).then((route: any) => {
+      map.geoObjects.add(route.getPath());
+      const points = route.getWayPoints();
+      points.get(0).properties.set('iconColor', '#FF0000');
+      points.get(1).properties.set('iconColor', '#1E98FF');
+
+      const info = route.getHumanLength();
+      $q.notify({ message: `Расстояние: ${info}`, color: 'positive', timeout: 3000 });
+    });
+  }
 };
 
 const updateMap = () => {
@@ -228,10 +282,15 @@ const updateMap = () => {
         [store.coordinates.lat, store.coordinates.lon],
         {
           balloonContentHeader: `<strong>${store.name}</strong>`,
-          balloonContentBody: store.address || '',
+          balloonContentBody: (store.address || '') + (userLocation.value ? '<br><small>Нажмите для маршрута</small>' : ''),
         },
         { preset: 'islands#blueShoppingIcon' }
       );
+      placemark.events.add('click', () => {
+        if (userLocation.value) {
+          showRoute([store.coordinates.lat, store.coordinates.lon]);
+        }
+      });
       map.geoObjects.add(placemark);
     }
   });
