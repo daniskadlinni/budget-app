@@ -64,29 +64,25 @@ const authStore = useAuthStore();
 const isShopping = computed(() => ['/shopping', '/products', '/reminders', '/stores'].some(p => route.path.startsWith(p)));
 
 const handleFabClick = () => {
-  document.dispatchEvent(new CustomEvent('open-add-transaction'));
+  window.dispatchEvent(new CustomEvent('open-add-transaction'));
 };
 
 const handleShoppingFabClick = () => {
-  alert('FAB clicked! Path: ' + router.currentRoute.value.path);
   const path = router.currentRoute.value.path;
   if (path === '/shopping') {
-    document.dispatchEvent(new CustomEvent('open-add-shopping'));
+    window.dispatchEvent(new CustomEvent('open-add-shopping'));
   } else if (path === '/products') {
-    document.dispatchEvent(new CustomEvent('open-add-product'));
+    window.dispatchEvent(new CustomEvent('open-add-product'));
   } else if (path === '/reminders') {
-    document.dispatchEvent(new CustomEvent('open-add-reminder'));
+    window.dispatchEvent(new CustomEvent('open-add-reminder'));
   } else if (path === '/stores') {
-    document.dispatchEvent(new CustomEvent('open-add-store'));
+    window.dispatchEvent(new CustomEvent('open-add-store'));
   } else {
-    document.dispatchEvent(new CustomEvent('open-add-shopping'));
+    window.dispatchEvent(new CustomEvent('open-add-shopping'));
   }
 };
 
 onMounted(() => {
-  (window as any).testFab = () => {
-    document.dispatchEvent(new CustomEvent('open-add-product'));
-  };
 });
 
 const budgetMenuItems = [
