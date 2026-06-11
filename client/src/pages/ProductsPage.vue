@@ -94,5 +94,6 @@ onMounted(() => {
     products.value = getProducts();
     stores.value = getStores();
   });
+  window.addEventListener('open-add-product', openAddDialog);
 });
 </script>

@@ -116,5 +116,6 @@ onMounted(() => {
     stores.value = getStores();
     products.value = getProducts();
   });
+  window.addEventListener('open-add-reminder', openAddDialog);
 });
 </script>

@@ -37,8 +37,11 @@
       </q-list>
     </q-drawer>
     <q-page-container><router-view /></q-page-container>
-    <q-page-sticky v-if="!isShopping" position="bottom-right" :offset="[18, 18]">
+    <q-page-sticky v-if="!isShopping" position="bottom-left" :offset="[18, 18]">
       <q-btn round color="primary" size="lg" icon="add" @click="handleFabClick" />
+    </q-page-sticky>
+    <q-page-sticky v-if="isShopping" position="bottom-left" :offset="[18, 18]">
+      <q-btn round color="primary" size="lg" icon="add" @click="handleShoppingFabClick" />
     </q-page-sticky>
     <q-page-sticky position="bottom" class="full-width">
       <q-tabs align="center" active-color="primary" indicator-color="primary" dense no-caps>
@@ -65,6 +68,21 @@ const handleFabClick = () => {
     document.dispatchEvent(new CustomEvent('open-add-transaction'));
   } else {
     router.push('/transactions');
+  }
+};
+
+const handleShoppingFabClick = () => {
+  const path = router.currentRoute.value.path;
+  if (path === '/shopping') {
+    document.dispatchEvent(new CustomEvent('open-add-shopping'));
+  } else if (path === '/products') {
+    document.dispatchEvent(new CustomEvent('open-add-product'));
+  } else if (path === '/reminders') {
+    document.dispatchEvent(new CustomEvent('open-add-reminder'));
+  } else if (path === '/stores') {
+    document.dispatchEvent(new CustomEvent('open-add-store'));
+  } else {
+    router.push('/shopping');
   }
 };
 

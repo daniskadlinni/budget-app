@@ -82,5 +82,6 @@ onMounted(() => {
     stores.value = getStores();
     products.value = getProducts();
   });
+  window.addEventListener('open-add-store', openAddDialog);
 });
 </script>
