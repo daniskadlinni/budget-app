@@ -3,13 +3,14 @@
     <div class="text-h5 q-mb-md">Список покупок</div>
 
     <q-btn color="primary" icon="add" label="Добавить" class="q-mb-md" @click="openAddDialog" />
+    <q-btn v-if="selectedItems.length > 0" color="positive" icon="check" :label="`Куплено (${selectedItems.length})`" class="q-mb-md" @click="openBatchPurchaseDialog" />
 
     <q-select v-if="stores.length > 0" v-model="filterStore" :options="storeOptions" label="Фильтр по магазину" clearable class="q-mb-md" />
 
     <q-list separator>
       <q-item v-for="item in filteredItems" :key="item.id">
         <q-item-section avatar>
-          <q-checkbox :model-value="item.purchased" @update:model-value="togglePurchased(item)" color="positive" />
+          <q-checkbox :model-value="selectedItems.includes(item.id)" @update:model-value="toggleSelect(item.id)" color="positive" />
         </q-item-section>
         <q-item-section>
           <q-item-label :class="{ 'text-strike': item.purchased, 'text-grey-6': item.purchased }">{{ item.name }}</q-item-label>
@@ -65,6 +66,22 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <q-dialog v-model="showBatchPurchaseDialog">
+      <q-card style="min-width: 350px">
+        <q-card-section><div class="text-h6">Отметить как купленное ({{ selectedItems.length }} шт.)</div></q-card-section>
+        <q-card-section>
+          <q-form class="q-gutter-md">
+            <q-input v-model.number="batchPurchaseForm.actualPrice" label="Факт. цена (для всех)" type="number" filled />
+            <q-select v-model="batchPurchaseForm.accountId" :options="accountOptions" label="Счёт" emit-value map-options filled />
+          </q-form>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Отмена" v-close-popup />
+          <q-btn color="positive" label="Куплено" @click="confirmBatchPurchase" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -79,14 +96,17 @@ const stores = ref<any[]>([]);
 const products = ref<any[]>([]);
 const items = ref<any[]>([]);
 const filterStore = ref(null);
+const selectedItems = ref<string[]>([]);
 
 const showItemDialog = ref(false);
 const showPurchaseDialog = ref(false);
+const showBatchPurchaseDialog = ref(false);
 const editingItem = ref(false);
 const purchasingItem = ref(null);
 
 const itemForm = ref({ id: '', name: '', storeId: '', plannedPrice: 0, productId: '' });
 const purchaseForm = ref({ actualPrice: 0, accountId: 'general-cash' });
+const batchPurchaseForm = ref({ actualPrice: 0, accountId: 'general-cash' });
 
 const storeOptions = computed(() => stores.value.map(s => ({ label: s.name, value: s.id })));
 const productOptions = computed(() => products.value.map(p => ({ label: p.name, value: p.id })));
@@ -142,6 +162,26 @@ const togglePurchased = (item: any) => {
   showPurchaseDialog.value = true;
 };
 
+const toggleSelect = (id: string) => {
+  const idx = selectedItems.value.indexOf(id);
+  if (idx >= 0) selectedItems.value.splice(idx, 1);
+  else selectedItems.value.push(id);
+};
+
+const openBatchPurchaseDialog = () => {
+  batchPurchaseForm.value = { actualPrice: 0, accountId: 'general-cash' };
+  showBatchPurchaseDialog.value = true;
+};
+
+const confirmBatchPurchase = () => {
+  selectedItems.value.forEach(id => {
+    markShoppingItemPurchased(id, batchPurchaseForm.value.actualPrice, batchPurchaseForm.value.accountId);
+  });
+  selectedItems.value = [];
+  items.value = getShoppingItems();
+  showBatchPurchaseDialog.value = false;
+};
+
 const confirmPurchase = () => {
   if (purchasingItem.value) {
     markShoppingItemPurchased(purchasingItem.value.id, purchaseForm.value.actualPrice, purchaseForm.value.accountId);
@@ -158,6 +198,7 @@ onMounted(() => {
     stores.value = getStores();
     products.value = getProducts();
     items.value = getShoppingItems();
+    selectedItems.value = [];
   });
 });
 </script>
