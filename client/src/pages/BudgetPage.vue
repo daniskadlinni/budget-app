@@ -108,6 +108,6 @@ onMounted(() => {
   window.addEventListener('dataUpdated', () => {
     budgets.value = getBudgets();
   });
-  window.addEventListener('open-add-transaction', openAdd);
+  window.addEventListener('open-add-transaction', () => openAdd());
 });
 </script>

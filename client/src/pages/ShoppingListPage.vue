@@ -200,6 +200,6 @@ onMounted(() => {
     items.value = getShoppingItems();
     selectedItems.value = [];
   });
-  window.addEventListener('open-add-shopping', openAddDialog);
+  window.addEventListener('open-add-shopping', () => openAddDialog());
 });
 </script>

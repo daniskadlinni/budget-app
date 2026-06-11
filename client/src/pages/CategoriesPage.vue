@@ -112,6 +112,6 @@ onMounted(() => {
   window.addEventListener('dataUpdated', () => {
     categories.value = getCategories();
   });
-  window.addEventListener('open-add-transaction', openAdd);
+  window.addEventListener('open-add-transaction', () => openAdd());
 });
 </script>

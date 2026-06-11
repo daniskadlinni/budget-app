@@ -117,7 +117,7 @@ onMounted(() => {
   window.addEventListener('dataUpdated', () => {
     goals.value = getGoals();
   });
-  window.addEventListener('open-add-transaction', openAdd);
+  window.addEventListener('open-add-transaction', () => openAdd());
 });
 
 const doFund = () => {
