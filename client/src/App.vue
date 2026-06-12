@@ -18,6 +18,16 @@ onMounted(async () => {
   await syncFromServer();
   loading.value = false;
   window.dispatchEvent(new CustomEvent('dataUpdated'));
+
+  const handleVisibilityChange = async () => {
+    if (document.visibilityState === 'visible') {
+      await syncFromServer();
+      window.dispatchEvent(new CustomEvent('dataUpdated'));
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
   syncInterval = setInterval(async () => {
     await syncFromServer();
     window.dispatchEvent(new CustomEvent('dataUpdated'));
