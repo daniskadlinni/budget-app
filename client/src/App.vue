@@ -21,6 +21,7 @@ onMounted(async () => {
 
   const handleVisibilityChange = async () => {
     if (document.visibilityState === 'visible') {
+      console.log('Visibility changed - syncing...');
       await syncFromServer();
       window.dispatchEvent(new CustomEvent('dataUpdated'));
     }
@@ -28,13 +29,14 @@ onMounted(async () => {
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
-  syncInterval = setInterval(async () => {
+  syncInterval = window.setInterval(async () => {
+    console.log('Interval sync...');
     await syncFromServer();
     window.dispatchEvent(new CustomEvent('dataUpdated'));
-  }, 10000) as unknown as number;
+  }, 30000);
 });
 
 onUnmounted(() => {
-  if (syncInterval) clearInterval(syncInterval);
+  if (syncInterval) window.clearInterval(syncInterval);
 });
 </script>
