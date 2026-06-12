@@ -19,13 +19,8 @@ onMounted(async () => {
   loading.value = false;
   window.dispatchEvent(new CustomEvent('dataUpdated'));
   syncInterval = setInterval(async () => {
-    const oldTransactions = localStorage.getItem('budget_transactions') || '[]';
-    const oldShopping = localStorage.getItem('budget_shopping') || '[]';
     await syncFromServer();
-    if (oldTransactions !== (localStorage.getItem('budget_transactions') || '[]') ||
-        oldShopping !== (localStorage.getItem('budget_shopping') || '[]')) {
-      window.dispatchEvent(new CustomEvent('dataUpdated'));
-    }
+    window.dispatchEvent(new CustomEvent('dataUpdated'));
   }, 10000) as unknown as number;
 });
 
