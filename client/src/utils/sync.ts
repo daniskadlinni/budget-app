@@ -8,7 +8,11 @@ export const syncToServer = async () => {
       transactions: JSON.parse(localStorage.getItem('budget_transactions') || '[]'),
       budgets: JSON.parse(localStorage.getItem('budget_limits') || '[]'),
       goals: JSON.parse(localStorage.getItem('budget_goals') || '[]'),
-      subscriptions: JSON.parse(localStorage.getItem('budget_subscriptions') || '[]')
+      subscriptions: JSON.parse(localStorage.getItem('budget_subscriptions') || '[]'),
+      stores: JSON.parse(localStorage.getItem('budget_stores') || '[]'),
+      shopping: JSON.parse(localStorage.getItem('budget_shopping') || '[]'),
+      products: JSON.parse(localStorage.getItem('budget_products') || '[]'),
+      reminders: JSON.parse(localStorage.getItem('budget_reminders') || '[]')
     };
     await fetch(API_URL, {
       method: 'POST',
@@ -24,12 +28,16 @@ export const syncFromServer = async () => {
   try {
     const res = await fetch(API_URL);
     const data = await res.json();
-    if (data.accounts && data.accounts.length > 0) localStorage.setItem('budget_accounts', JSON.stringify(data.accounts));
-    if (data.categories && data.categories.length > 0) localStorage.setItem('budget_categories', JSON.stringify(data.categories));
-    if (data.transactions && data.transactions.length > 0) localStorage.setItem('budget_transactions', JSON.stringify(data.transactions));
-    if (data.budgets && data.budgets.length > 0) localStorage.setItem('budget_limits', JSON.stringify(data.budgets));
-    if (data.goals && data.goals.length > 0) localStorage.setItem('budget_goals', JSON.stringify(data.goals));
-    if (data.subscriptions && data.subscriptions.length > 0) localStorage.setItem('budget_subscriptions', JSON.stringify(data.subscriptions));
+    if (data.accounts !== undefined) localStorage.setItem('budget_accounts', JSON.stringify(data.accounts));
+    if (data.categories !== undefined) localStorage.setItem('budget_categories', JSON.stringify(data.categories));
+    if (data.transactions !== undefined) localStorage.setItem('budget_transactions', JSON.stringify(data.transactions));
+    if (data.budgets !== undefined) localStorage.setItem('budget_limits', JSON.stringify(data.budgets));
+    if (data.goals !== undefined) localStorage.setItem('budget_goals', JSON.stringify(data.goals));
+    if (data.subscriptions !== undefined) localStorage.setItem('budget_subscriptions', JSON.stringify(data.subscriptions));
+    if (data.stores !== undefined) localStorage.setItem('budget_stores', JSON.stringify(data.stores));
+    if (data.shopping !== undefined) localStorage.setItem('budget_shopping', JSON.stringify(data.shopping));
+    if (data.products !== undefined) localStorage.setItem('budget_products', JSON.stringify(data.products));
+    if (data.reminders !== undefined) localStorage.setItem('budget_reminders', JSON.stringify(data.reminders));
     return data;
   } catch (e) {
     console.error('Fetch error:', e);
@@ -54,7 +62,11 @@ export const clearTransactionsOnServer = async () => {
       transactions: [],
       budgets: JSON.parse(localStorage.getItem('budget_limits') || '[]'),
       goals: JSON.parse(localStorage.getItem('budget_goals') || '[]'),
-      subscriptions: JSON.parse(localStorage.getItem('budget_subscriptions') || '[]')
+      subscriptions: JSON.parse(localStorage.getItem('budget_subscriptions') || '[]'),
+      stores: JSON.parse(localStorage.getItem('budget_stores') || '[]'),
+      shopping: JSON.parse(localStorage.getItem('budget_shopping') || '[]'),
+      products: JSON.parse(localStorage.getItem('budget_products') || '[]'),
+      reminders: JSON.parse(localStorage.getItem('budget_reminders') || '[]')
     };
     await fetch(API_URL, {
       method: 'POST',

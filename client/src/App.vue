@@ -17,6 +17,7 @@ onMounted(async () => {
   initStorage();
   await syncFromServer();
   loading.value = false;
+  window.dispatchEvent(new CustomEvent('dataUpdated'));
   syncInterval = setInterval(async () => {
     const oldData = localStorage.getItem('budget_transactions');
     await syncFromServer();
