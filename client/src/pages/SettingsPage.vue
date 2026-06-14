@@ -23,9 +23,21 @@
         <div class="text-h6">Импорт из CSV</div>
         <p class="text-caption text-grey">Импорт транзакций из банковской выписки (CSV)</p>
         <q-select v-model="csvAccount" :options="accountOptions" label="Счёт для импорта" emit-value map-options filled class="q-mt-sm" />
-        <q-select v-model="csvCategory" :options="categoryOptions" label="Категория для импорта" emit-value map-options filled class="q-mt-sm" />
         <q-btn color="secondary" label="Импорт CSV" class="q-mt-md" @click="triggerCsvImport" />
         <input ref="csvFileInput" type="file" accept=".csv" style="display:none" @change="importCSV" />
+      </q-card-section>
+    </q-card>
+
+    <q-card class="q-mb-md">
+      <q-card-section>
+        <div class="text-h6">Правила категорий</div>
+        <p class="text-caption text-grey">Ключевое слово → Категория при импорте</p>
+        <div v-for="(rule, idx) in categoryRules" :key="idx" class="row q-gutter-sm q-mb-sm items-center">
+          <q-input v-model="rule.keyword" label="Ключевое слово" dense style="min-width: 120px" />
+          <q-select v-model="rule.categoryId" :options="categoryOptions" label="Категория" emit-value map-options dense style="min-width: 150px" />
+          <q-btn flat round dense icon="delete" color="negative" @click="removeRule(idx)" />
+        </div>
+        <q-btn flat color="primary" label="Добавить правило" @click="addRule" />
       </q-card-section>
     </q-card>
 
@@ -39,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { exportData as exp, importData as imp, initStorage, getCategories, getTransactions, saveTransaction } from 'src/utils/storage';
 import { clearTransactionsOnServer, syncToServer } from 'src/utils/sync';
@@ -50,7 +62,6 @@ const darkMode = ref($q.dark.isActive);
 const fileInput = ref<HTMLInputElement | null>(null);
 const csvFileInput = ref<HTMLInputElement | null>(null);
 const csvAccount = ref('general-cash');
-const csvCategory = ref('');
 
 const accountOptions = [
   { label: 'Общий — Наличные', value: 'general-cash' },
@@ -59,9 +70,44 @@ const accountOptions = [
 ];
 
 const categoryOptions = ref<any[]>([]);
+const categoryRules = ref<{ keyword: string; categoryId: string }[]>([]);
+
+const STORAGE_KEY_CATEGORY_RULES = 'budget_category_rules';
+
+onMounted(() => {
+  initCategories();
+});
 
 const initCategories = () => {
   categoryOptions.value = getCategories().map((c: any) => ({ label: c.name, value: c.id }));
+  const savedRules = localStorage.getItem(STORAGE_KEY_CATEGORY_RULES);
+  if (savedRules) {
+    categoryRules.value = JSON.parse(savedRules);
+  }
+};
+
+const saveRules = () => {
+  localStorage.setItem(STORAGE_KEY_CATEGORY_RULES, JSON.stringify(categoryRules.value));
+};
+
+const addRule = () => {
+  categoryRules.value.push({ keyword: '', categoryId: '' });
+  saveRules();
+};
+
+const removeRule = (idx: number) => {
+  categoryRules.value.splice(idx, 1);
+  saveRules();
+};
+
+const findCategoryByKeyword = (description: string): string => {
+  const desc = description.toLowerCase();
+  for (const rule of categoryRules.value) {
+    if (rule.keyword && rule.categoryId && desc.includes(rule.keyword.toLowerCase())) {
+      return rule.categoryId;
+    }
+  }
+  return '';
 };
 
 const toggleTheme = () => {
@@ -181,6 +227,8 @@ const importCSV = (e: Event) => {
         return;
       }
 
+      saveRules();
+
       const existing = getTransactions();
       const newTransactions = parsed.map(t => ({
         id: uuidv4(),
@@ -189,7 +237,7 @@ const importCSV = (e: Event) => {
         amount: t.amount,
         date: t.date,
         note: t.description,
-        categoryId: csvCategory.value,
+        categoryId: findCategoryByKeyword(t.description),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }));
