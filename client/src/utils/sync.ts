@@ -143,7 +143,12 @@ export const syncFromServer = async () => {
       const merged = mergeArrays(localReminders, data.reminders, 'id', 'reminder');
       localStorage.setItem('budget_reminders', JSON.stringify(merged));
     }
-    return data;
+
+    return {
+      transactions: localTransactions.length,
+      serverTransactions: data.transactions?.length || 0,
+      synced: true
+    };
   } catch (e) {
     console.error('Fetch error:', e);
     return null;

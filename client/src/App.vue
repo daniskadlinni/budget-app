@@ -17,12 +17,12 @@ let syncInterval: number | null = null;
 
 onMounted(async () => {
   initStorage();
-  const synced = await syncFromServer();
+  const result = await syncFromServer();
   loading.value = false;
   window.dispatchEvent(new CustomEvent('dataUpdated'));
 
-  if (synced) {
-    $q.notify({ message: 'Данные синхронизированы', color: 'positive', timeout: 1000 });
+  if (result?.synced) {
+    $q.notify({ message: `Синхронизировано. Локально: ${result.transactions}, на сервере: ${result.serverTransactions}`, color: 'positive', timeout: 3000 });
   }
 
   const handleVisibilityChange = async () => {
