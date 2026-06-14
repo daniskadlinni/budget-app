@@ -223,6 +223,9 @@ const importSberText = async () => {
         return null;
       } else if (t.category === 'Перевод СБП' && t.type === 'income') {
         return null;
+      } else if (t.category === 'Внесение наличных') {
+        type = 'income';
+        categoryId = 'income';
       }
 
       return {
