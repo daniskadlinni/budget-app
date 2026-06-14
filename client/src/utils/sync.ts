@@ -8,6 +8,14 @@ export const addDeletedId = (type: string, id: string) => {
   localStorage.setItem(DELETED_KEY, JSON.stringify(deleted));
 };
 
+export const trackDeletedId = (type: string, id: string) => {
+  const deleted = getDeletedIds();
+  if (!deleted.find((d: any) => d.type === type && d.id === id)) {
+    deleted.push({ type, id });
+    localStorage.setItem(DELETED_KEY, JSON.stringify(deleted));
+  }
+};
+
 export const syncToServer = async () => {
   try {
     const data = {

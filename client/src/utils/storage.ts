@@ -5,7 +5,6 @@ const STORAGE_KEYS = {
 };
 
 const DELETED_IDS_KEY = 'budget_deleted_ids';
-
 const getDeletedIds = () => JSON.parse(localStorage.getItem(DELETED_IDS_KEY) || '[]');
 
 const API_URL = 'https://zxrpluuneassstffzday.supabase.co/functions/v1/sync-data';
@@ -40,7 +39,8 @@ const syncToServer = async () => {
       transactions: getTransactions(),
       budgets: getBudgets(),
       goals: getGoals(),
-      subscriptions: getSubscriptions()
+      subscriptions: getSubscriptions(),
+      deletedIds: getDeletedIds()
     };
     await fetch(API_URL, {
       method: 'POST',
