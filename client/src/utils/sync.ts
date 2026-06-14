@@ -14,11 +14,24 @@ export const syncToServer = async () => {
       products: JSON.parse(localStorage.getItem('budget_products') || '[]'),
       reminders: JSON.parse(localStorage.getItem('budget_reminders') || '[]')
     };
-    await fetch(API_URL, {
+    const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
+    const result = await res.json();
+    if (result) {
+      if (result.accounts !== undefined) localStorage.setItem('budget_accounts', JSON.stringify(result.accounts));
+      if (result.categories !== undefined) localStorage.setItem('budget_categories', JSON.stringify(result.categories));
+      if (result.transactions !== undefined) localStorage.setItem('budget_transactions', JSON.stringify(result.transactions));
+      if (result.budgets !== undefined) localStorage.setItem('budget_limits', JSON.stringify(result.budgets));
+      if (result.goals !== undefined) localStorage.setItem('budget_goals', JSON.stringify(result.goals));
+      if (result.subscriptions !== undefined) localStorage.setItem('budget_subscriptions', JSON.stringify(result.subscriptions));
+      if (result.stores !== undefined) localStorage.setItem('budget_stores', JSON.stringify(result.stores));
+      if (result.shopping !== undefined) localStorage.setItem('budget_shopping', JSON.stringify(result.shopping));
+      if (result.products !== undefined) localStorage.setItem('budget_products', JSON.stringify(result.products));
+      if (result.reminders !== undefined) localStorage.setItem('budget_reminders', JSON.stringify(result.reminders));
+    }
   } catch (e) {
     console.error('Sync error:', e);
   }
@@ -68,11 +81,15 @@ export const clearTransactionsOnServer = async () => {
       products: JSON.parse(localStorage.getItem('budget_products') || '[]'),
       reminders: JSON.parse(localStorage.getItem('budget_reminders') || '[]')
     };
-    await fetch(API_URL, {
+    const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
+    const result = await res.json();
+    if (result && result.transactions !== undefined) {
+      localStorage.setItem('budget_transactions', JSON.stringify(result.transactions));
+    }
   } catch (e) {
     console.error('Clear transactions error:', e);
   }

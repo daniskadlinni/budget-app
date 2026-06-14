@@ -21,19 +21,12 @@ onMounted(async () => {
 
   const handleVisibilityChange = async () => {
     if (document.visibilityState === 'visible') {
-      console.log('Visibility changed - syncing...');
       await syncFromServer();
       window.dispatchEvent(new CustomEvent('dataUpdated'));
     }
   };
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
-
-  syncInterval = window.setInterval(async () => {
-    console.log('Interval sync...');
-    await syncFromServer();
-    window.dispatchEvent(new CustomEvent('dataUpdated'));
-  }, 30000);
 });
 
 onUnmounted(() => {
