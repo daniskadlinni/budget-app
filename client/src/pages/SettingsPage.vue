@@ -208,21 +208,51 @@ const importSberText = async () => {
       'Компенсации': { id: 'income', type: 'income' }
     };
 
+    const sberToAppCategory: Record<string, { id: string; type: 'income' | 'expense'; name: string }> = {
+      'Транспорт': { id: 'transport', type: 'expense', name: 'Транспорт' },
+      'Супермаркеты': { id: 'supermarket', type: 'expense', name: 'Супермаркеты' },
+      'Рестораны и кафе': { id: 'restaurants', type: 'expense', name: 'Рестораны и кафе' },
+      'Автомобиль': { id: 'auto', type: 'expense', name: 'Автомобиль' },
+      'Одежда и аксессуары': { id: 'clothes', type: 'expense', name: 'Одежда и аксессуары' },
+      'Прочие операции': { id: 'other', type: 'expense', name: 'Прочее' },
+      'Оплата по QR–коду СБП': { id: 'other', type: 'expense', name: 'Прочее' },
+      'Внесение наличных': { id: 'income', type: 'income', name: 'Доходы' },
+      'Заработная плата': { id: 'salary', type: 'income', name: 'Зарплата' },
+      'Компенсации': { id: 'income', type: 'income', name: 'Доходы' },
+      'Перевод с карты': { id: 'transfers', type: 'expense', name: 'Переводы' },
+      'Перевод на карту': { id: 'transfers', type: 'income', name: 'Переводы' },
+      'Перевод СБП': { id: 'transfers', type: 'expense', name: 'Переводы' }
+    };
+
+    const existingCategories = getCategories();
+    const existingCategoryIds = new Set(existingCategories.map(c => c.id));
+
+    for (const [, catInfo] of Object.entries(sberToAppCategory)) {
+      if (!existingCategoryIds.has(catInfo.id)) {
+        existingCategories.push({
+          id: catInfo.id,
+          name: catInfo.name,
+          type: catInfo.type,
+          icon: catInfo.type === 'income' ? 'account_balance_wallet' : 'shopping_bag',
+          color: catInfo.type === 'income' ? '#4CAF50' : '#2196F3',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+    localStorage.setItem('budget_categories', JSON.stringify(existingCategories));
+
     const newTransactions = parsed.map(t => {
-      const catMap = categoryMap[t.category];
+      const catMap = sberToAppCategory[t.category];
       let type = t.type;
       let categoryId = catMap?.id || 'other';
 
       if (t.category === 'Перевод с карты') {
         if (t.description.includes('Операция по счету') || t.description.includes('на платежный счет')) {
-          return null;
+          type = 'income';
+        } else {
+          type = 'expense';
         }
-        type = 'expense';
-        categoryId = 'transfers';
-      } else if (t.category === 'Перевод на карту' && t.type === 'income') {
-        return null;
-      } else if (t.category === 'Перевод СБП' && t.type === 'income') {
-        return null;
       } else if (t.category === 'Внесение наличных') {
         type = 'income';
         categoryId = 'income';
@@ -239,7 +269,7 @@ const importSberText = async () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-    }).filter(Boolean);
+    });
 
     const all = [...existing, ...newTransactions];
     localStorage.setItem('budget_transactions', JSON.stringify(all));
