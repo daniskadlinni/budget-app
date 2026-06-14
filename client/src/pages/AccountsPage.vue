@@ -44,6 +44,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { initStorage, getAccounts, getAccountBalance, formatNumber, saveTransaction } from 'src/utils/storage';
+import { syncToServer } from 'src/utils/sync';
 import { useQuasar } from 'quasar';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -81,8 +82,11 @@ const doTransfer = () => {
   const now = new Date().toISOString();
   const t1 = { id: uuidv4(), accountId: transfer.value.from, type: 'transfer', amount: transfer.value.amount, date: now.split('T')[0], note: '', createdAt: now, updatedAt: now, isTransferFrom: true, transferToId: transfer.value.to };
   const t2 = { id: uuidv4(), accountId: transfer.value.to, type: 'transfer', amount: transfer.value.amount, date: now.split('T')[0], note: '', createdAt: now, updatedAt: now, isTransferFrom: false, transferToId: transfer.value.from };
-  saveTransaction(t1);
-  saveTransaction(t2);
+  const transactions = JSON.parse(localStorage.getItem('budget_transactions') || '[]');
+  transactions.push(t1);
+  transactions.push(t2);
+  localStorage.setItem('budget_transactions', JSON.stringify(transactions));
+  syncToServer();
   version.value++;
   showTransfer.value = false;
   $q.notify({ message: 'Перевод выполнен', color: 'positive' });
