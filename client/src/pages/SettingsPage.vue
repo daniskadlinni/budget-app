@@ -139,7 +139,7 @@ const parseSberText = (text: string): { date: string; amount: number; type: 'inc
 
     const rest = match[4];
 
-    const amountMatch = rest.match(/([+-])?([\d\s]+,\d{2})/);
+    const amountMatch = rest.match(/([+-]?\s*\d+(?:\s+\d+)*,\d{2})(?:\s|$)/);
     if (!amountMatch) continue;
 
     const sign = amountMatch[1] || '';
