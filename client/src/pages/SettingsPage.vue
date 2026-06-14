@@ -215,6 +215,14 @@ const importSberText = async () => {
 
       if (t.category === 'Перевод с карты' || t.category === 'Перевод на карту' || t.category === 'Перевод СБП') {
         categoryId = 'transfers';
+
+        if (t.category === 'Перевод с карты') {
+          type = t.description.includes('Операция по счету') || t.description.includes('на платежный счет') ? 'income' : 'expense';
+        } else if (t.category === 'Перевод на карту' && t.type === 'income') {
+          type = 'income';
+        } else if (t.category === 'Перевод СБП') {
+          type = t.type;
+        }
       }
 
       return {
