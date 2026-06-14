@@ -61,42 +61,42 @@ const syncFromServer = async () => {
     const localBudgets = getBudgets();
     const localGoals = getGoals();
 
-    const mergeArrays = (local: any[], server: any[], key: string) => {
-      const serverMap = new Map(server.map(item => [item[key], item]));
-      const localIds = new Set(local.map(item => item[key]));
-      const result = [...local];
-      for (const serverItem of server) {
-        if (!localIds.has(serverItem[key])) {
-          result.push(serverItem);
-        }
-      }
-      return result;
-    };
-
     if (data.accounts) {
-      const mergedAccounts = mergeArrays(localAccounts, data.accounts, 'id');
-      localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(mergedAccounts));
+      const localIds = new Set(localAccounts.map(a => a.id));
+      const newFromServer = data.accounts.filter(a => !localIds.has(a.id));
+      const merged = [...localAccounts, ...newFromServer];
+      localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(merged));
     }
     if (data.categories) {
-      const mergedCategories = mergeArrays(localCategories, data.categories, 'id');
-      localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(mergedCategories));
+      const localIds = new Set(localCategories.map(c => c.id));
+      const newFromServer = data.categories.filter(c => !localIds.has(c.id));
+      const merged = [...localCategories, ...newFromServer];
+      localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(merged));
     }
     if (data.transactions) {
-      const mergedTransactions = mergeArrays(localTransactions, data.transactions, 'id');
-      localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(mergedTransactions));
+      const localIds = new Set(localTransactions.map(t => t.id));
+      const newFromServer = data.transactions.filter(t => !localIds.has(t.id));
+      const merged = [...localTransactions, ...newFromServer];
+      localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(merged));
     }
     if (data.budgets) {
-      const mergedBudgets = mergeArrays(localBudgets, data.budgets, 'id');
-      localStorage.setItem('budget_limits', JSON.stringify(mergedBudgets));
+      const localIds = new Set(localBudgets.map(b => b.id));
+      const newFromServer = data.budgets.filter(b => !localIds.has(b.id));
+      const merged = [...localBudgets, ...newFromServer];
+      localStorage.setItem('budget_limits', JSON.stringify(merged));
     }
     if (data.goals) {
-      const mergedGoals = mergeArrays(localGoals, data.goals, 'id');
-      localStorage.setItem('budget_goals', JSON.stringify(mergedGoals));
+      const localIds = new Set(localGoals.map(g => g.id));
+      const newFromServer = data.goals.filter(g => !localIds.has(g.id));
+      const merged = [...localGoals, ...newFromServer];
+      localStorage.setItem('budget_goals', JSON.stringify(merged));
     }
     if (data.subscriptions) {
       const localSubs = getSubscriptions();
-      const mergedSubs = mergeArrays(localSubs, data.subscriptions, 'id');
-      localStorage.setItem('budget_subscriptions', JSON.stringify(mergedSubs));
+      const localIds = new Set(localSubs.map(s => s.id));
+      const newFromServer = data.subscriptions.filter(s => !localIds.has(s.id));
+      const merged = [...localSubs, ...newFromServer];
+      localStorage.setItem('budget_subscriptions', JSON.stringify(merged));
     }
     return data;
   } catch (e) {
