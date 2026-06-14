@@ -19,6 +19,7 @@
         <q-item-section>
           <q-item-label>{{ getLabel(t) }}</q-item-label>
           <q-item-label caption>{{ getCatName(t.categoryId) }}</q-item-label>
+          <q-item-label caption v-if="t.note">{{ t.note }}</q-item-label>
           <q-item-label caption>{{ formatDate(t.date) }}</q-item-label>
         </q-item-section>
         <q-item-section side>
