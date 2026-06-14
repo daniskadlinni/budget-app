@@ -123,50 +123,53 @@ const findCategoryByKeyword = (description: string): string => {
   return '';
 };
 
-const parseSberText = (text: string): { date: string; amount: number; type: 'income' | 'expense'; description: string }[] => {
-  const lines = text.split('\n');
-  const transactions: { date: string; amount: number; type: 'income' | 'expense'; description: string }[] = [];
+const parseSberText = (text: string): { date: string; amount: number; type: 'income' | 'expense'; description: string; category: string }[] => {
+  const transactions: { date: string; amount: number; type: 'income' | 'expense'; description: string; category: string }[] = [];
 
-  const dateRegex = /^(\d{2})\.(\d{2})\.(\d{4})/;
-  const amountRegex = /^([\d\s]+,?\d*)\s*([+-]?)/;
+  const lines = text.split('\n');
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    const dateMatch = trimmed.match(dateRegex);
-    if (!dateMatch) continue;
+    const match = trimmed.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+\d{2}:\d{2}\s+(.+)$/);
+    if (!match) continue;
 
-    const day = dateMatch[1];
-    const month = dateMatch[2];
-    const year = dateMatch[3];
-    const dateStr = `${year}-${month}-${day}`;
+    const dateStr = `${match[3]}-${match[2]}-${match[1]}`;
 
-    const amountMatch = trimmed.match(/([\d\s]+[.,]\d{2})\s*([+-])?/);
+    const rest = match[4];
+
+    const amountMatch = rest.match(/([+-])?([\d\s]+,\d{2})/);
     if (!amountMatch) continue;
 
-    let amountStr = amountMatch[1].replace(/\s/g, '').replace(',', '.');
-    const sign = amountMatch[2];
-    const amount = parseFloat(amountStr);
-
-    if (isNaN(amount) || amount === 0) continue;
+    const sign = amountMatch[1] || '';
+    const amount = parseFloat(amountMatch[2].replace(/\s/g, '').replace(',', '.'));
+    if (isNaN(amount) || amount < 1) continue;
 
     const type = sign === '+' ? 'income' : 'expense';
 
-    const descMatch = trimmed.match(/\d{2}[.,]\d{2}[.,]\d{4}\s+\d{2}:\d{2}\s+(.+?)([\d\s]+[.,]\d{2})/);
-    let description = '';
-    if (descMatch) {
-      description = descMatch[1].trim();
-    } else {
-      const parts = trimmed.split(/\s{2,}/);
-      if (parts.length > 2) {
-        description = parts.slice(1, -1).join(' ').trim();
+    const beforeAmount = rest.substring(0, rest.indexOf(amountMatch[0])).trim();
+    const categoryMatch = beforeAmount.match(/^(.+?)\s*$/);
+
+    let category = 'other';
+    let description = beforeAmount;
+
+    if (categoryMatch) {
+      const possibleCategory = categoryMatch[1].trim();
+      const knownCategories = ['Транспорт', 'Супермаркеты', 'Рестораны и кафе', 'Автомобиль', 'Одежда и аксессуары', 'Прочие операции', 'Перевод с карты', 'Перевод на карту', 'Перевод СБП', 'Внесение наличных', 'Оплата по QR–коду СБП'];
+
+      for (const cat of knownCategories) {
+        if (possibleCategory.includes(cat)) {
+          category = cat;
+          description = possibleCategory.replace(cat, '').trim();
+          break;
+        }
       }
     }
 
-    description = description.replace(/[*#]/g, '').trim();
+    description = description.replace(/[*#]/g, '').replace(/\s+/g, ' ').trim();
 
-    transactions.push({ date: dateStr, amount, type, description });
+    transactions.push({ date: dateStr, amount, type, description, category });
   }
 
   return transactions;
@@ -192,17 +195,40 @@ const importSberText = async () => {
     saveRules();
 
     const existing = getTransactions();
-    const newTransactions = parsed.map(t => ({
-      id: uuidv4(),
-      accountId: sberAccount.value,
-      type: t.type,
-      amount: t.amount,
-      date: t.date,
-      note: t.description,
-      categoryId: findCategoryByKeyword(t.description),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }));
+    const categoryMap: Record<string, { id: string; type: 'income' | 'expense' }> = {
+      'Транспорт': { id: 'transport', type: 'expense' },
+      'Супермаркеты': { id: 'supermarket', type: 'expense' },
+      'Рестораны и кафе': { id: 'restaurants', type: 'expense' },
+      'Автомобиль': { id: 'auto', type: 'expense' },
+      'Одежда и аксессуары': { id: 'clothes', type: 'expense' },
+      'Прочие операции': { id: 'other', type: 'expense' },
+      'Оплата по QR–коду СБП': { id: 'other', type: 'expense' },
+      'Внесение наличных': { id: 'income', type: 'income' },
+      'Заработная плата': { id: 'salary', type: 'income' },
+      'Компенсации': { id: 'income', type: 'income' }
+    };
+
+    const newTransactions = parsed.map(t => {
+      const catMap = categoryMap[t.category];
+      let type = t.type;
+      let categoryId = catMap?.id || 'other';
+
+      if (t.category === 'Перевод с карты' || t.category === 'Перевод на карту' || t.category === 'Перевод СБП') {
+        categoryId = 'transfers';
+      }
+
+      return {
+        id: uuidv4(),
+        accountId: sberAccount.value,
+        type,
+        amount: t.amount,
+        date: t.date,
+        note: t.description,
+        categoryId: findCategoryByKeyword(t.description) || categoryId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    });
 
     const all = [...existing, ...newTransactions];
     localStorage.setItem('budget_transactions', JSON.stringify(all));
