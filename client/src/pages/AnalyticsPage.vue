@@ -109,10 +109,16 @@ const chartOptions = {
 
 const getDateFilter = () => {
   const now = new Date();
-  if (period.value === 'month') now.setMonth(now.getMonth() - 1);
-  else if (period.value === 'quarter') now.setMonth(now.getMonth() - 3);
-  else now.setFullYear(now.getFullYear() - 1);
-  return now.toISOString().split('T')[0];
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  if (period.value === 'month') {
+    return `${year}-${String(month + 1).padStart(2, '0')}-01`;
+  } else if (period.value === 'quarter') {
+    const quarterStartMonth = Math.floor(month / 3) * 3;
+    return `${year}-${String(quarterStartMonth + 1).padStart(2, '0')}-01`;
+  } else {
+    return `${year}-01-01`;
+  }
 };
 
 const filteredTransactions = computed(() =>
@@ -164,12 +170,26 @@ const comparisonChartData = computed(() => {
   const incomeData: number[] = [];
   const expenseData: number[] = [];
 
-  let numMonths = period.value === 'month' ? 1 : period.value === 'quarter' ? 3 : 12;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  let startMonth: number;
+  let numMonths: number;
+  if (period.value === 'month') {
+    startMonth = month;
+    numMonths = 1;
+  } else if (period.value === 'quarter') {
+    startMonth = Math.floor(month / 3) * 3;
+    numMonths = 3;
+  } else {
+    startMonth = 0;
+    numMonths = month + 1;
+  }
 
-  for (let i = numMonths - 1; i >= 0; i--) {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  for (let i = 0; i < numMonths; i++) {
+    const m = startMonth + i;
+    const d = new Date(year, m, 1);
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     months.push(monthKey);
     const monthTransactions = filteredTransactions.value.filter(t => t.date.startsWith(monthKey));
     incomeData.push(monthTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0));
