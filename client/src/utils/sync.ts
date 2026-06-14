@@ -41,16 +41,64 @@ export const syncFromServer = async () => {
   try {
     const res = await fetch(API_URL);
     const data = await res.json();
-    if (data.accounts !== undefined) localStorage.setItem('budget_accounts', JSON.stringify(data.accounts));
-    if (data.categories !== undefined) localStorage.setItem('budget_categories', JSON.stringify(data.categories));
-    if (data.transactions !== undefined) localStorage.setItem('budget_transactions', JSON.stringify(data.transactions));
-    if (data.budgets !== undefined) localStorage.setItem('budget_limits', JSON.stringify(data.budgets));
-    if (data.goals !== undefined) localStorage.setItem('budget_goals', JSON.stringify(data.goals));
-    if (data.subscriptions !== undefined) localStorage.setItem('budget_subscriptions', JSON.stringify(data.subscriptions));
-    if (data.stores !== undefined) localStorage.setItem('budget_stores', JSON.stringify(data.stores));
-    if (data.shopping !== undefined) localStorage.setItem('budget_shopping', JSON.stringify(data.shopping));
-    if (data.products !== undefined) localStorage.setItem('budget_products', JSON.stringify(data.products));
-    if (data.reminders !== undefined) localStorage.setItem('budget_reminders', JSON.stringify(data.reminders));
+
+    const localAccounts = JSON.parse(localStorage.getItem('budget_accounts') || '[]');
+    const localCategories = JSON.parse(localStorage.getItem('budget_categories') || '[]');
+    const localTransactions = JSON.parse(localStorage.getItem('budget_transactions') || '[]');
+    const localBudgets = JSON.parse(localStorage.getItem('budget_limits') || '[]');
+    const localGoals = JSON.parse(localStorage.getItem('budget_goals') || '[]');
+    const localSubscriptions = JSON.parse(localStorage.getItem('budget_subscriptions') || '[]');
+    const localStores = JSON.parse(localStorage.getItem('budget_stores') || '[]');
+    const localShopping = JSON.parse(localStorage.getItem('budget_shopping') || '[]');
+    const localProducts = JSON.parse(localStorage.getItem('budget_products') || '[]');
+    const localReminders = JSON.parse(localStorage.getItem('budget_reminders') || '[]');
+
+    const mergeArrays = (local: any[], server: any[], key: string) => {
+      const localIds = new Set(local.map((item: any) => item[key]));
+      const newFromServer = server.filter((item: any) => !localIds.has(item[key]));
+      return [...local, ...newFromServer];
+    };
+
+    if (data.accounts !== undefined) {
+      const merged = mergeArrays(localAccounts, data.accounts, 'id');
+      localStorage.setItem('budget_accounts', JSON.stringify(merged));
+    }
+    if (data.categories !== undefined) {
+      const merged = mergeArrays(localCategories, data.categories, 'id');
+      localStorage.setItem('budget_categories', JSON.stringify(merged));
+    }
+    if (data.transactions !== undefined) {
+      const merged = mergeArrays(localTransactions, data.transactions, 'id');
+      localStorage.setItem('budget_transactions', JSON.stringify(merged));
+    }
+    if (data.budgets !== undefined) {
+      const merged = mergeArrays(localBudgets, data.budgets, 'id');
+      localStorage.setItem('budget_limits', JSON.stringify(merged));
+    }
+    if (data.goals !== undefined) {
+      const merged = mergeArrays(localGoals, data.goals, 'id');
+      localStorage.setItem('budget_goals', JSON.stringify(merged));
+    }
+    if (data.subscriptions !== undefined) {
+      const merged = mergeArrays(localSubscriptions, data.subscriptions, 'id');
+      localStorage.setItem('budget_subscriptions', JSON.stringify(merged));
+    }
+    if (data.stores !== undefined) {
+      const merged = mergeArrays(localStores, data.stores, 'id');
+      localStorage.setItem('budget_stores', JSON.stringify(merged));
+    }
+    if (data.shopping !== undefined) {
+      const merged = mergeArrays(localShopping, data.shopping, 'id');
+      localStorage.setItem('budget_shopping', JSON.stringify(merged));
+    }
+    if (data.products !== undefined) {
+      const merged = mergeArrays(localProducts, data.products, 'id');
+      localStorage.setItem('budget_products', JSON.stringify(merged));
+    }
+    if (data.reminders !== undefined) {
+      const merged = mergeArrays(localReminders, data.reminders, 'id');
+      localStorage.setItem('budget_reminders', JSON.stringify(merged));
+    }
     return data;
   } catch (e) {
     console.error('Fetch error:', e);
