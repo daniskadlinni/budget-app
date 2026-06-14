@@ -1,5 +1,8 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": null
+  "outputDirectory": "dist/spa",
+  "framework": "static",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

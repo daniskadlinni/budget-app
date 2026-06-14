@@ -1,0 +1,5 @@
+{
+	"appId": "com.ourbudget.app",
+	"appName": "НашЛДБюджет",
+	"webDir": "dist/spa"
+}

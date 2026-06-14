@@ -1,0 +1,86 @@
+name: Import CSV Transactions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'csv-import/*.csv'
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find new CSV files
+        id: find_csv
+        run: |
+          FILES=$(find csv-import -maxdepth 1 -name '*.csv' -type f 2>/dev/null | tr '\n' ',')
+          echo "files=${FILES%,}" >> $GITHUB_OUTPUT
+
+      - name: Process CSV files
+        if: steps.find_csv.outputs.files != ''
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          IFS=',' read -ra FILES <<< "${{ steps.find_csv.outputs.files }}"
+          for filepath in "${FILES[@]}"; do
+            filename=$(basename "$filepath")
+            echo "Processing: $filename"
+
+            # Parse CSV and create transactions via Supabase API
+            while IFS=',' read -r date amount desc; do
+              # Skip header or empty lines
+              if [[ "$date" == "date" ]] || [[ -z "$date" ]]; then
+                continue
+              fi
+
+              # Clean up values
+              date=$(echo "$date" | tr -d '"' | tr -d '\r')
+              amount=$(echo "$amount" | tr -d '"' | tr -d '\r' | tr -d ',')
+              desc=$(echo "$desc" | tr -d '"' | tr -d '\r')
+
+              # Skip if amount is not a number
+              if ! [[ "$amount" =~ ^-?[0-9]+\.?[0-9]*$ ]]; then
+                continue
+              fi
+
+              echo "Creating transaction: date=$date amount=$amount desc=$desc"
+
+              # Call Supabase API
+              curl -X POST "$SUPABASE_URL/rest/v1/transactions" \
+                -H "apikey: $SUPABASE_SERVICE_KEY" \
+                -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+                -H "Content-Type: application/json" \
+                -H "Prefer: resolution=merge-duplicates" \
+                -d "{
+                  \"id\": \"$(uuidgen)\",
+                  \"account_id\": \"general-card\",
+                  \"type\": \"$(echo $amount | grep -q '^-' && echo 'expense' || echo 'income')\",
+                  \"amount\": \"${amount#-}\",
+                  \"date\": \"$date\",
+                  \"note\": \"$desc\",
+                  \"created_at\": \"$(date -Iseconds)\",
+                  \"updated_at\": \"$(date -Iseconds)\"
+                }"
+
+            done < "$filepath"
+
+            # Move to processed
+            mkdir -p csv-import/processed
+            mv "$filepath" "csv-import/processed/$filename"
+            echo "Moved $filename to processed/"
+
+          done
+
+      - name: Commit processed files
+        if: steps.find_csv.outputs.files != ''
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Processed CSV files - $(date)"
+          git push || echo "No changes to commit"
