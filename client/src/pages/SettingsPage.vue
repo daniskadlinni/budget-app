@@ -272,7 +272,12 @@ const importSberText = async () => {
       };
     });
 
-    const all = [...existing, ...newTransactions];
+    const isDuplicate = (newT: any) => existing.some((t: any) =>
+      t.date === newT.date && t.amount === newT.amount && t.type === newT.type && t.accountId === newT.accountId
+    );
+
+    const toAdd = newTransactions.filter(t => !isDuplicate(t));
+    const all = [...existing, ...toAdd];
     localStorage.setItem('budget_transactions', JSON.stringify(all));
     syncToServer();
 
@@ -423,7 +428,7 @@ const importCSV = (e: Event) => {
       localStorage.setItem('budget_transactions', JSON.stringify(all));
       syncToServer();
 
-      $q.notify({ message: `Импортировано ${newTransactions.length} операций`, color: 'positive' });
+$q.notify({ message: `Импортировано ${toAdd.length} операций${toAdd.length < newTransactions.length ? ` (${newTransactions.length - toAdd.length} дублей) ` : ''}`, color: 'positive' });
       setTimeout(() => location.reload(), 1000);
     } catch (err) {
       $q.notify({ message: 'Ошибка импорта CSV', color: 'negative' });
