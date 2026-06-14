@@ -7,17 +7,23 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useQuasar } from 'quasar';
 import { initStorage } from 'src/utils/storage';
 import { syncFromServer } from 'src/utils/sync';
 
+const $q = useQuasar();
 const loading = ref(true);
 let syncInterval: number | null = null;
 
 onMounted(async () => {
   initStorage();
-  await syncFromServer();
+  const synced = await syncFromServer();
   loading.value = false;
   window.dispatchEvent(new CustomEvent('dataUpdated'));
+
+  if (synced) {
+    $q.notify({ message: 'Данные синхронизированы', color: 'positive', timeout: 1000 });
+  }
 
   const handleVisibilityChange = async () => {
     if (document.visibilityState === 'visible') {
