@@ -99,6 +99,7 @@ export const syncFromServer = async () => {
         }
       }
 
+      console.log(`sync ${type}: local=${local.length}, server=${server.length}, merged=${result.length}`);
       return result;
     };
 
