@@ -128,51 +128,67 @@ const parseSberText = (text: string): { date: string; amount: number; type: 'inc
 
   const lines = text.split('\n');
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
+  let currentTransaction = '';
 
-    const match = trimmed.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+\d{2}:\d{2}\s+(.+)$/);
-    if (!match) continue;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
 
-    const dateStr = `${match[3]}-${match[2]}-${match[1]}`;
+    const dateMatch = line.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+\d{2}:\d{2}/);
 
-    const rest = match[4];
-
-    const amountMatch = rest.match(/([+-]?)\s*(\d+(?:\s+\d+)*,\d{2})(?:\s|$)/);
-    if (!amountMatch) continue;
-
-    const sign = amountMatch[1] || '';
-    const amount = parseFloat(amountMatch[2].replace(/\s/g, '').replace(',', '.'));
-    if (isNaN(amount) || amount < 1) continue;
-
-    const type = sign === '+' ? 'income' : 'expense';
-
-    const beforeAmount = rest.substring(0, rest.indexOf(amountMatch[0])).trim();
-    const categoryMatch = beforeAmount.match(/^(.+?)\s*$/);
-
-    let category = 'other';
-    let description = beforeAmount;
-
-    if (categoryMatch) {
-      const possibleCategory = categoryMatch[1].trim();
-      const knownCategories = ['Транспорт', 'Супермаркеты', 'Рестораны и кафе', 'Автомобиль', 'Одежда и аксессуары', 'Прочие операции', 'Перевод с карты', 'Перевод на карту', 'Перевод СБП', 'Внесение наличных', 'Оплата по QR–коду СБП'];
-
-      for (const cat of knownCategories) {
-        if (possibleCategory.includes(cat)) {
-          category = cat;
-          description = possibleCategory.replace(cat, '').trim();
-          break;
-        }
+    if (dateMatch) {
+      if (currentTransaction) {
+        const parsed = parseTransactionLine(currentTransaction);
+        if (parsed) transactions.push(parsed);
       }
+      currentTransaction = line;
+    } else {
+      currentTransaction += ' ' + line;
     }
+  }
 
-    description = description.replace(/[*#]/g, '').replace(/\s+/g, ' ').trim();
-
-    transactions.push({ date: dateStr, amount, type, description, category });
+  if (currentTransaction) {
+    const parsed = parseTransactionLine(currentTransaction);
+    if (parsed) transactions.push(parsed);
   }
 
   return transactions;
+};
+
+const parseTransactionLine = (line: string): { date: string; amount: number; type: 'income' | 'expense'; description: string; category: string } | null => {
+  const match = line.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+\d{2}:\d{2}\s+(.+)$/);
+  if (!match) return null;
+
+  const dateStr = `${match[3]}-${match[2]}-${match[1]}`;
+  const rest = match[4];
+
+  const amountMatch = rest.match(/([+-]?)\s*(\d+(?:\s+\d+)*,\d{2})(?:\s|$)/);
+  if (!amountMatch) return null;
+
+  const sign = amountMatch[1] || '';
+  const amount = parseFloat(amountMatch[2].replace(/\s/g, '').replace(',', '.'));
+  if (isNaN(amount) || amount < 1) return null;
+
+  const type = sign === '+' ? 'income' : 'expense';
+
+  const beforeAmount = rest.substring(0, rest.indexOf(amountMatch[0])).trim();
+
+  let category = 'other';
+  let description = beforeAmount;
+
+  const knownCategories = ['Транспорт', 'Супермаркеты', 'Рестораны и кафе', 'Автомобиль', 'Одежда и аксессуары', 'Прочие операции', 'Перевод с карты', 'Перевод на карту', 'Перевод СБП', 'Внесение наличных', 'Оплата по QR–коду СБП'];
+
+  for (const cat of knownCategories) {
+    if (beforeAmount.includes(cat)) {
+      category = cat;
+      description = beforeAmount.replace(cat, '').trim();
+      break;
+    }
+  }
+
+  description = description.replace(/[*#]/g, '').replace(/\s+/g, ' ').trim();
+
+  return { date: dateStr, amount, type, description, category };
 };
 
 const importSberText = async () => {
