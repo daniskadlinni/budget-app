@@ -43,6 +43,16 @@
 
     <q-card class="q-mb-md">
       <q-card-section>
+        <div class="text-h6">Импорт из текста Сбербанка</div>
+        <p class="text-caption text-grey">Скопируйте текст из PDF выписки Сбербанка и вставьте сюда</p>
+        <q-select v-model="sberAccount" :options="accountOptions" label="Счёт" emit-value map-options filled class="q-mt-sm" />
+        <q-input v-model="sberText" type="textarea" label="Вставьте текст из PDF" filled class="q-mt-sm" style="min-height: 150px" />
+        <q-btn color="secondary" label="Импортировать" class="q-mt-md" @click="importSberText" :loading="sberLoading" />
+      </q-card-section>
+    </q-card>
+
+    <q-card class="q-mb-md">
+      <q-card-section>
         <div class="text-h6 text-negative">Опасная зона</div>
         <q-btn color="negative" label="Сбросить все данные" class="q-mt-md" @click="confirmReset" />
       </q-card-section>
@@ -62,6 +72,9 @@ const darkMode = ref($q.dark.isActive);
 const fileInput = ref<HTMLInputElement | null>(null);
 const csvFileInput = ref<HTMLInputElement | null>(null);
 const csvAccount = ref('general-cash');
+const sberText = ref('');
+const sberAccount = ref('general-card');
+const sberLoading = ref(false);
 
 const accountOptions = [
   { label: 'Общий — Наличные', value: 'general-cash' },
@@ -108,6 +121,102 @@ const findCategoryByKeyword = (description: string): string => {
     }
   }
   return '';
+};
+
+const parseSberText = (text: string): { date: string; amount: number; type: 'income' | 'expense'; description: string }[] => {
+  const lines = text.split('\n');
+  const transactions: { date: string; amount: number; type: 'income' | 'expense'; description: string }[] = [];
+
+  const dateRegex = /^(\d{2})\.(\d{2})\.(\d{4})/;
+  const amountRegex = /^([\d\s]+,?\d*)\s*([+-]?)/;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const dateMatch = trimmed.match(dateRegex);
+    if (!dateMatch) continue;
+
+    const day = dateMatch[1];
+    const month = dateMatch[2];
+    const year = dateMatch[3];
+    const dateStr = `${year}-${month}-${day}`;
+
+    const amountMatch = trimmed.match(/([\d\s]+[.,]\d{2})\s*([+-])?/);
+    if (!amountMatch) continue;
+
+    let amountStr = amountMatch[1].replace(/\s/g, '').replace(',', '.');
+    const sign = amountMatch[2];
+    const amount = parseFloat(amountStr);
+
+    if (isNaN(amount) || amount === 0) continue;
+
+    const type = sign === '+' ? 'income' : 'expense';
+
+    const descMatch = trimmed.match(/\d{2}[.,]\d{2}[.,]\d{4}\s+\d{2}:\d{2}\s+(.+?)([\d\s]+[.,]\d{2})/);
+    let description = '';
+    if (descMatch) {
+      description = descMatch[1].trim();
+    } else {
+      const parts = trimmed.split(/\s{2,}/);
+      if (parts.length > 2) {
+        description = parts.slice(1, -1).join(' ').trim();
+      }
+    }
+
+    description = description.replace(/[*#]/g, '').trim();
+
+    transactions.push({ date: dateStr, amount, type, description });
+  }
+
+  return transactions;
+};
+
+const importSberText = async () => {
+  if (!sberText.value.trim()) {
+    $q.notify({ message: 'Вставьте текст из PDF', color: 'negative' });
+    return;
+  }
+
+  sberLoading.value = true;
+
+  try {
+    const parsed = parseSberText(sberText.value);
+
+    if (parsed.length === 0) {
+      $q.notify({ message: 'Не удалось распознать транзакции', color: 'negative' });
+      sberLoading.value = false;
+      return;
+    }
+
+    saveRules();
+
+    const existing = getTransactions();
+    const newTransactions = parsed.map(t => ({
+      id: uuidv4(),
+      accountId: sberAccount.value,
+      type: t.type,
+      amount: t.amount,
+      date: t.date,
+      note: t.description,
+      categoryId: findCategoryByKeyword(t.description),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }));
+
+    const all = [...existing, ...newTransactions];
+    localStorage.setItem('budget_transactions', JSON.stringify(all));
+    syncToServer();
+
+    sberText.value = '';
+
+    $q.notify({ message: `Импортировано ${newTransactions.length} операций`, color: 'positive' });
+    setTimeout(() => location.reload(), 1000);
+  } catch (err) {
+    $q.notify({ message: 'Ошибка импорта', color: 'negative' });
+  }
+
+  sberLoading.value = false;
 };
 
 const toggleTheme = () => {
