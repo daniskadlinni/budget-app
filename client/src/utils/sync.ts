@@ -13,6 +13,7 @@ export const trackDeletedId = (type: string, id: string) => {
   if (!deleted.find((d: any) => d.type === type && d.id === id)) {
     deleted.push({ type, id });
     localStorage.setItem(DELETED_KEY, JSON.stringify(deleted));
+    console.log(`trackDeletedId: ${type}/${id}, total deleted: ${deleted.length}`);
   }
 };
 
@@ -76,6 +77,7 @@ export const syncFromServer = async () => {
       const deletedIds = getDeletedIds().filter((d: any) => d.type === type).map((d: any) => d.id);
       const deletedSet = new Set(deletedIds);
       const newFromServer = server.filter((item: any) => !localIds.has(item[key]) && !deletedSet.has(item[key]));
+      console.log(`mergeArrays ${type}: local=${local.length}, server=${server.length}, deleted=${deletedIds.length}, added=${newFromServer.length}`);
       return [...local, ...newFromServer];
     };
 
