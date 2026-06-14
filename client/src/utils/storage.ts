@@ -54,12 +54,50 @@ const syncFromServer = async () => {
       headers: { 'Authorization': `Bearer ${API_KEY}` }
     });
     const data = await res.json();
-    if (data.accounts) localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(data.accounts));
-    if (data.categories) localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(data.categories));
-    if (data.transactions) localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(data.transactions));
-    if (data.budgets) localStorage.setItem('budget_limits', JSON.stringify(data.budgets));
-    if (data.goals) localStorage.setItem('budget_goals', JSON.stringify(data.goals));
-    if (data.subscriptions) localStorage.setItem('budget_subscriptions', JSON.stringify(data.subscriptions));
+
+    const localAccounts = getAccounts();
+    const localCategories = getCategories();
+    const localTransactions = getTransactions();
+    const localBudgets = getBudgets();
+    const localGoals = getGoals();
+
+    const mergeArrays = (local: any[], server: any[], key: string) => {
+      const serverMap = new Map(server.map(item => [item[key], item]));
+      const localIds = new Set(local.map(item => item[key]));
+      const result = [...local];
+      for (const serverItem of server) {
+        if (!localIds.has(serverItem[key])) {
+          result.push(serverItem);
+        }
+      }
+      return result;
+    };
+
+    if (data.accounts) {
+      const mergedAccounts = mergeArrays(localAccounts, data.accounts, 'id');
+      localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(mergedAccounts));
+    }
+    if (data.categories) {
+      const mergedCategories = mergeArrays(localCategories, data.categories, 'id');
+      localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(mergedCategories));
+    }
+    if (data.transactions) {
+      const mergedTransactions = mergeArrays(localTransactions, data.transactions, 'id');
+      localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(mergedTransactions));
+    }
+    if (data.budgets) {
+      const mergedBudgets = mergeArrays(localBudgets, data.budgets, 'id');
+      localStorage.setItem('budget_limits', JSON.stringify(mergedBudgets));
+    }
+    if (data.goals) {
+      const mergedGoals = mergeArrays(localGoals, data.goals, 'id');
+      localStorage.setItem('budget_goals', JSON.stringify(mergedGoals));
+    }
+    if (data.subscriptions) {
+      const localSubs = getSubscriptions();
+      const mergedSubs = mergeArrays(localSubs, data.subscriptions, 'id');
+      localStorage.setItem('budget_subscriptions', JSON.stringify(mergedSubs));
+    }
     return data;
   } catch (e) {
     console.error('Fetch error:', e);
