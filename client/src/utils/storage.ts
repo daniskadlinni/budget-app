@@ -4,6 +4,10 @@ const STORAGE_KEYS = {
   transactions: 'budget_transactions'
 };
 
+const DELETED_IDS_KEY = 'budget_deleted_ids';
+
+const getDeletedIds = () => JSON.parse(localStorage.getItem(DELETED_IDS_KEY) || '[]');
+
 const API_URL = 'https://zxrpluuneassstffzday.supabase.co/functions/v1/sync-data';
 const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4cnBsdXVuZWFzc3N0ZmZ6ZGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0OTI5MDMsImV4cCI6MjA5NjA2ODkwM30.sjXnnVnF1cyENt5x9yTH1_v7SPXul4603aSZmXuqmgc';
 
@@ -131,6 +135,9 @@ export const saveTransaction = (t) => {
 export const deleteTransaction = (id) => {
   const transactions = getTransactions().filter(t => t.id !== id && t.transferToId !== id);
   localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(transactions));
+  const deleted = getDeletedIds();
+  deleted.push({ type: 'transaction', id });
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
   syncToServer();
 };
 
@@ -167,6 +174,9 @@ export const saveBudget = (budget: any) => {
 export const deleteBudget = (id: string) => {
   const budgets = getBudgets().filter((b: any) => b.id !== id);
   localStorage.setItem(STORAGE_KEYS_BUDGET, JSON.stringify(budgets));
+  const deleted = getDeletedIds();
+  deleted.push({ type: 'budget', id });
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
   syncToServer();
 };
 
@@ -202,6 +212,9 @@ export const saveSubscription = (sub: any) => {
 export const deleteSubscription = (id: string) => {
   const subs = getSubscriptions().filter((s: any) => s.id !== id);
   localStorage.setItem(STORAGE_KEYS_SUBS, JSON.stringify(subs));
+  const deleted = getDeletedIds();
+  deleted.push({ type: 'subscription', id });
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
   syncToServer();
 };
 
@@ -221,6 +234,9 @@ export const saveCategory = (cat: any) => {
 export const deleteCategory = (id: string) => {
   const categories = getCategories().filter(c => c.id !== id);
   localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(categories));
+  const deleted = getDeletedIds();
+  deleted.push({ type: 'category', id });
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
   syncToServer();
 };
 
@@ -243,6 +259,9 @@ export const saveGoal = (goal: any) => {
 export const deleteGoal = (id: string) => {
   const goals = getGoals().filter((g: any) => g.id !== id);
   localStorage.setItem(STORAGE_KEYS_GOALS, JSON.stringify(goals));
+  const deleted = getDeletedIds();
+  deleted.push({ type: 'goal', id });
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
   syncToServer();
 };
 
@@ -281,6 +300,9 @@ export const saveStore = (store: any) => {
 export const deleteStore = (id: string) => {
   const stores = getStores().filter((s: any) => s.id !== id);
   localStorage.setItem(STORAGE_KEYS_STORES, JSON.stringify(stores));
+  const deleted = getDeletedIds();
+  deleted.push({ type: 'store', id });
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
   syncToServer();
 };
 
@@ -303,6 +325,9 @@ export const saveShoppingItem = (item: any) => {
 export const deleteShoppingItem = (id: string) => {
   const items = getShoppingItems().filter((i: any) => i.id !== id);
   localStorage.setItem(STORAGE_KEYS_SHOPPING, JSON.stringify(items));
+  const deleted = getDeletedIds();
+  deleted.push({ type: 'shopping', id });
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
   syncToServer();
 };
 
@@ -350,6 +375,9 @@ export const saveProduct = (product: any) => {
 export const deleteProduct = (id: string) => {
   const products = getProducts().filter((p: any) => p.id !== id);
   localStorage.setItem(STORAGE_KEYS_PRODUCTS, JSON.stringify(products));
+  const deleted = getDeletedIds();
+  deleted.push({ type: 'product', id });
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
   syncToServer();
 };
 
@@ -384,6 +412,9 @@ export const saveReminder = (reminder: any) => {
 export const deleteReminder = (id: string) => {
   const reminders = getReminders().filter((r: any) => r.id !== id);
   localStorage.setItem(STORAGE_KEYS_REMINDERS, JSON.stringify(reminders));
+  const deleted = getDeletedIds();
+  deleted.push({ type: 'reminder', id });
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
   syncToServer();
 };
 
