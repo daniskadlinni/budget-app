@@ -212,7 +212,7 @@ const importSberText = async () => {
       'Транспорт': { id: 'transport', type: 'expense', name: 'Транспорт' },
       'Супермаркеты': { id: 'supermarket', type: 'expense', name: 'Супермаркеты' },
       'Рестораны и кафе': { id: 'restaurants', type: 'expense', name: 'Рестораны и кафе' },
-      'Автомобиль': { id: 'auto', type: 'expense', name: 'Автомобиль' },
+      'Автомобиль': { id: 'fuel', type: 'expense', name: 'Бензин' },
       'Одежда и аксессуары': { id: 'clothes', type: 'expense', name: 'Одежда и аксессуары' },
       'Прочие операции': { id: 'other', type: 'expense', name: 'Прочее' },
       'Оплата по QR–коду СБП': { id: 'other', type: 'expense', name: 'Прочее' },
