@@ -72,11 +72,34 @@ export const syncFromServer = async () => {
     const localReminders = JSON.parse(localStorage.getItem('budget_reminders') || '[]');
 
     const mergeArrays = (local: any[], server: any[], key: string, type: string) => {
-      const localIds = new Set(local.map((item: any) => item[key]));
       const deletedIds = getDeletedIds().filter((d: any) => d.type === type).map((d: any) => d.id);
       const deletedSet = new Set(deletedIds);
-      const newFromServer = server.filter((item: any) => !localIds.has(item[key]) && !deletedSet.has(item[key]));
-      return [...local, ...newFromServer];
+
+      const localMap = new Map(local.map(item => [item[key], item]));
+      const serverMap = new Map(server.map(item => [item[key], item]));
+
+      const result: any[] = [];
+
+      for (const [id, localItem] of localMap) {
+        if (deletedSet.has(id)) continue;
+        const serverItem = serverMap.get(id);
+        if (serverItem) {
+          const localTime = new Date(localItem.updatedAt || 0).getTime();
+          const serverTime = new Date(serverItem.updatedAt || 0).getTime();
+          result.push(serverTime > localTime ? serverItem : localItem);
+        } else {
+          result.push(localItem);
+        }
+      }
+
+      for (const [id, serverItem] of serverMap) {
+        if (deletedSet.has(id)) continue;
+        if (!localMap.has(id)) {
+          result.push(serverItem);
+        }
+      }
+
+      return result;
     };
 
     if (data.accounts !== undefined) {
