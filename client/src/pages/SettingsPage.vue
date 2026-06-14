@@ -229,11 +229,12 @@ const importSberText = async () => {
 
     for (const [, catInfo] of Object.entries(sberToAppCategory)) {
       if (!existingCategoryIds.has(catInfo.id)) {
+        const icon = catInfo.id === 'fuel' ? 'local_gas_station' : (catInfo.type === 'income' ? 'account_balance_wallet' : 'shopping_bag');
         existingCategories.push({
           id: catInfo.id,
           name: catInfo.name,
           type: catInfo.type,
-          icon: catInfo.type === 'income' ? 'account_balance_wallet' : 'shopping_bag',
+          icon,
           color: catInfo.type === 'income' ? '#4CAF50' : '#2196F3',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -264,7 +265,7 @@ const importSberText = async () => {
         type,
         amount: t.amount,
         date: t.date,
-        note: t.description ? `${t.description} [${t.category}]` : t.category,
+        note: t.description ? `${t.description} [${catMap?.name || t.category}]` : (catMap?.name || t.category),
         categoryId: findCategoryByKeyword(t.description) || categoryId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
