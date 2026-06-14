@@ -264,7 +264,7 @@ const importSberText = async () => {
         type,
         amount: t.amount,
         date: t.date,
-        note: t.description,
+        note: t.description ? `${t.description} [${t.category}]` : t.category,
         categoryId: findCategoryByKeyword(t.description) || categoryId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
