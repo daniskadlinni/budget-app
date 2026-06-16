@@ -101,7 +101,7 @@ const calcAmount = () => {
   newAmount.value = (newLiters.value || 0) * (newPricePerLiter.value || 0);
 };
 
-const totalKm = ref(parseInt(localStorage.getItem('car_total_km') || '0'));
+const totalKm = ref(parseInt(localStorage.getItem('car_total_km') || '0', 10));
 
 const totalMileageFromTransactions = computed(() => {
   refreshKey.value;
@@ -111,8 +111,8 @@ const totalMileageFromTransactions = computed(() => {
 
   let totalMileage = 0;
   for (let i = 1; i < fuelTransactions.length; i++) {
-    const prev = fuelTransactions[i - 1].mileage || 0;
-    const curr = fuelTransactions[i].mileage || 0;
+    const prev = parseInt(fuelTransactions[i - 1].mileage, 10) || 0;
+    const curr = parseInt(fuelTransactions[i].mileage, 10) || 0;
     if (curr > prev) {
       totalMileage += curr - prev;
     }
@@ -124,12 +124,24 @@ const consumptionPer100km = computed(() => {
   refreshKey.value;
   const km = totalMileageFromTransactions.value || totalKm.value;
   if (!km) return '0';
-  const totalFuel = getTransactions()
-    .filter(t => t.categoryId === 'fuel' && t.liters)
-    .reduce((s, t) => s + (t.liters || 0), 0);
-  if (!totalFuel) return '0';
-  const consumption = (totalFuel / km) * 100;
-  return consumption.toFixed(1);
+
+  const fuelTransactions = getTransactions().filter(t => t.categoryId === 'fuel');
+
+  const totalFuel = fuelTransactions.reduce((s, t) => s + (t.liters || 0), 0);
+  const totalSpent = fuelTransactions.reduce((s, t) => s + (t.amount || 0), 0);
+
+  if (totalFuel > 0) {
+    const consumption = (totalFuel / km) * 100;
+    return consumption.toFixed(1);
+  }
+
+  if (totalSpent > 0 && newPricePerLiter.value > 0) {
+    const estimatedLiters = totalSpent / newPricePerLiter.value;
+    const consumption = (estimatedLiters / km) * 100;
+    return consumption.toFixed(1);
+  }
+
+  return '0';
 });
 
 const costPer100km = computed(() => {
@@ -141,7 +153,7 @@ const costPer100km = computed(() => {
 });
 
 const saveCarSettings = () => {
-  localStorage.setItem('car_total_km', totalKm.value.toString());
+  localStorage.setItem('car_total_km', parseInt(totalKm.value.toString(), 10).toString());
 };
 
 const fuelTransactions = computed(() => {
@@ -187,7 +199,7 @@ const addFuel = () => {
     updatedAt: new Date().toISOString()
   });
   if (newMileage.value) {
-    totalKm.value = newMileage.value;
+    totalKm.value = parseInt(newMileage.value.toString(), 10);
     saveCarSettings();
   }
   newAmount.value = 0;
