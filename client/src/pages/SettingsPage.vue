@@ -265,6 +265,7 @@ const importSberText = async () => {
       let categoryId = catMap?.id || 'other';
 
       const fuelKeywords = ['AZS', 'ГАЗ', 'НЕФТЬ', 'ЛУКОЙЛ', 'ШЕЛЛ', 'БП', 'ТРАНСНЕФТЬ', 'РОСНЕФТЬ', 'ЗАПРАВКА', 'АЗС', 'ГАЗПРОМНЕФТЬ', 'ПЕТРОТЕСТ', 'ФАКЕЛ', 'АВТОГРАД', 'MIRATORG', 'НАВИГАТОР', 'VOSTOK', 'ВЕСТА', 'KUPER'];
+      const supermarketKeywords = ['PYATEROCHKA', 'LENTA', 'MAGNIT', 'AUCHAN', 'OKEY', 'DIXY', 'METRO', 'KRAUT', 'BILLA', 'PEREKRESTOK', 'PYATEROCHKA', 'ПЯТЕРОЧКА', 'ЛЕНТА', 'МАГНИТ', 'АШАН', 'ОКЕЙ', 'ДИКСИ', 'МЕТРО', 'КРАУТ', 'БИЛЛА', 'ПЕРЕКРЕСТОК'];
 
       if (t.category === 'Перевод с карты') {
         if (t.description.includes('Операция по счету') || t.description.includes('на платежный счет')) {
@@ -280,6 +281,8 @@ const importSberText = async () => {
       const descUpper = t.description.toUpperCase();
       if (fuelKeywords.some(k => descUpper.includes(k))) {
         categoryId = 'fuel';
+      } else if (supermarketKeywords.some(k => descUpper.includes(k))) {
+        categoryId = 'supermarket';
       }
 
       return {
