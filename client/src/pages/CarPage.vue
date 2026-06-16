@@ -123,12 +123,16 @@ const totalMileageFromTransactions = computed(() => {
 const consumptionPer100km = computed(() => {
   refreshKey.value;
   const km = totalMileageFromTransactions.value || totalKm.value;
+  console.log('consumptionPer100km:', { km, totalMileage: totalMileageFromTransactions.value, totalKm: totalKm.value });
+
   if (!km) return '0';
 
   const fuelTransactions = getTransactions().filter(t => t.categoryId === 'fuel');
+  console.log('fuelTransactions:', fuelTransactions.length, fuelTransactions.map(t => ({ amount: t.amount, liters: t.liters })));
 
   const totalFuel = fuelTransactions.reduce((s, t) => s + (t.liters || 0), 0);
   const totalSpent = fuelTransactions.reduce((s, t) => s + (t.amount || 0), 0);
+  console.log('totalFuel:', totalFuel, 'totalSpent:', totalSpent, 'pricePerLiter:', newPricePerLiter.value);
 
   if (totalFuel > 0) {
     const consumption = (totalFuel / km) * 100;
