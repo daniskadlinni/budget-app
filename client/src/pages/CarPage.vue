@@ -86,7 +86,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { getTransactions, deleteTransaction as delTrans, saveTransaction } from 'src/utils/storage';
+import { getTransactions, deleteTransaction as delTrans, saveTransaction, formatNumber } from 'src/utils/storage';
 
 const showAddDialog = ref(false);
 const newAmount = ref(0);
@@ -138,7 +138,6 @@ const costPer100km = computed(() => {
 
 const saveCarSettings = () => {
   localStorage.setItem('car_total_km', totalKm.value.toString());
-  localStorage.setItem('car_fuel_price', fuelPrice.value.toString());
 };
 
 const fuelTransactions = computed(() => {
