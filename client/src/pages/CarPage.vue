@@ -95,6 +95,7 @@ const newPricePerLiter = ref(0);
 const newMileage = ref(0);
 const newDate = ref(new Date().toISOString().split('T')[0]);
 const newNote = ref('');
+const refreshKey = ref(0);
 
 const calcAmount = () => {
   newAmount.value = (newLiters.value || 0) * (newPricePerLiter.value || 0);
@@ -103,6 +104,7 @@ const calcAmount = () => {
 const totalKm = ref(parseInt(localStorage.getItem('car_total_km') || '0'));
 
 const totalMileageFromTransactions = computed(() => {
+  refreshKey.value;
   const fuelTransactions = getTransactions()
     .filter(t => t.categoryId === 'fuel' && t.mileage)
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -119,6 +121,7 @@ const totalMileageFromTransactions = computed(() => {
 });
 
 const consumptionPer100km = computed(() => {
+  refreshKey.value;
   const km = totalMileageFromTransactions.value || totalKm.value;
   if (!km) return '0';
   const totalFuel = getTransactions()
@@ -130,6 +133,7 @@ const consumptionPer100km = computed(() => {
 });
 
 const costPer100km = computed(() => {
+  refreshKey.value;
   const km = totalMileageFromTransactions.value || totalKm.value;
   if (!km) return '0';
   const cost = monthlySpent.value / km * 100;
@@ -141,12 +145,14 @@ const saveCarSettings = () => {
 };
 
 const fuelTransactions = computed(() => {
+  refreshKey.value;
   return getTransactions()
     .filter(t => t.categoryId === 'fuel')
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => b.date.localeCompare(b.date));
 });
 
 const monthlySpent = computed(() => {
+  refreshKey.value;
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   return getTransactions()
@@ -155,6 +161,7 @@ const monthlySpent = computed(() => {
 });
 
 const weeklySpent = computed(() => {
+  refreshKey.value;
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const weekKey = weekAgo.toISOString().split('T')[0];
@@ -194,7 +201,7 @@ const addFuel = () => {
 
 const deleteTransaction = (id: string) => {
   delTrans(id);
-  window.dispatchEvent(new CustomEvent('dataUpdated'));
+  refreshKey.value++;
 };
 
 const handleAddFuel = () => {
