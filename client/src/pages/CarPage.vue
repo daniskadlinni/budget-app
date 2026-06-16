@@ -196,7 +196,7 @@ const addFuel = () => {
   newMileage.value = 0;
   newNote.value = '';
   showAddDialog.value = false;
-  window.dispatchEvent(new CustomEvent('dataUpdated'));
+  refreshKey.value++;
 };
 
 const deleteTransaction = (id: string) => {
@@ -205,6 +205,7 @@ const deleteTransaction = (id: string) => {
 };
 
 const handleAddFuel = () => {
+  refreshKey.value++;
   showAddDialog.value = true;
 };
 
