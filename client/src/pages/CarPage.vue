@@ -72,7 +72,10 @@
           <div class="text-h6">Добавить заправку</div>
         </q-card-section>
         <q-card-section>
-          <q-input v-model="newAmount" type="number" label="Сумма" />
+          <q-input v-model="newLiters" type="number" label="Количество литров" suffix="л" @update:model-value="calcAmount" />
+          <q-input v-model="newPricePerLiter" type="number" label="Цена за литр" suffix="₽/л" class="q-mt-sm" @update:model-value="calcAmount" />
+          <q-input v-model="newMileage" type="number" label="Пробег" suffix="км" class="q-mt-sm" />
+          <q-input v-model="newAmount" type="number" label="Сумма" suffix="₽" class="q-mt-sm" readonly />
           <q-input v-model="newDate" type="date" label="Дата" class="q-mt-sm" />
           <q-input v-model="newNote" label="Примечание" class="q-mt-sm" />
         </q-card-section>
@@ -91,22 +94,37 @@ import { getTransactions, deleteTransaction as delTrans, saveTransaction } from 
 
 const showAddDialog = ref(false);
 const newAmount = ref(0);
+const newLiters = ref(0);
+const newPricePerLiter = ref(0);
+const newMileage = ref(0);
 const newDate = ref(new Date().toISOString().split('T')[0]);
 const newNote = ref('');
+
+const calcAmount = () => {
+  newAmount.value = (newLiters.value || 0) * (newPricePerLiter.value || 0);
+};
 
 const totalKm = ref(parseInt(localStorage.getItem('car_total_km') || '0'));
 const fuelPrice = ref(parseFloat(localStorage.getItem('car_fuel_price') || '50'));
 
+const totalMileageFromTransactions = computed(() => {
+  return getTransactions()
+    .filter(t => t.categoryId === 'fuel' && t.mileage)
+    .reduce((s, t) => s + (t.mileage || 0), 0);
+});
+
 const consumptionPer100km = computed(() => {
-  if (!totalKm.value || !fuelPrice.value) return '0';
+  const km = totalMileageFromTransactions.value || totalKm.value;
+  if (!km || !fuelPrice.value) return '0';
   const totalFuel = monthlySpent.value / fuelPrice.value;
-  const consumption = (totalFuel / totalKm.value) * 100;
+  const consumption = (totalFuel / km) * 100;
   return consumption.toFixed(1);
 });
 
 const costPer100km = computed(() => {
-  if (!totalKm.value) return '0';
-  const cost = monthlySpent.value / totalKm.value * 100;
+  const km = totalMileageFromTransactions.value || totalKm.value;
+  if (!km) return '0';
+  const cost = monthlySpent.value / km * 100;
   return formatNumber(cost);
 });
 
@@ -148,10 +166,20 @@ const addFuel = () => {
     date: newDate.value,
     note: newNote.value,
     categoryId: 'fuel',
+    mileage: newMileage.value || null,
+    liters: newLiters.value || null,
+    pricePerLiter: newPricePerLiter.value || null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });
+  if (newMileage.value) {
+    totalKm.value += newMileage.value;
+    saveCarSettings();
+  }
   newAmount.value = 0;
+  newLiters.value = 0;
+  newPricePerLiter.value = 0;
+  newMileage.value = 0;
   newNote.value = '';
   showAddDialog.value = false;
   window.dispatchEvent(new CustomEvent('dataUpdated'));
