@@ -3,7 +3,7 @@
     <q-header elevated>
       <q-toolbar>
         <q-btn flat round dense icon="menu" @click="drawer = !drawer" />
-        <q-toolbar-title>{{ tabTitle }}</q-toolbar-title>
+        <q-toolbar-title :class="{ 'car-toolbar-title': isCar }">{{ tabTitle }}</q-toolbar-title>
       </q-toolbar>
     </q-header>
     <q-drawer v-if="!isShopping" v-model="drawer" show-if-above bordered>
@@ -59,7 +59,10 @@
       <q-tabs align="center" active-color="primary" indicator-color="primary" dense no-caps>
         <q-route-tab to="/dashboard" icon="dashboard" label="Бюджет" />
         <q-route-tab to="/shopping" icon="shopping_cart" label="Покупки" />
-        <q-route-tab to="/car" icon="directions_car" label="Авто" />
+        <q-route-tab to="/car" class="car-route-tab">
+          <q-icon name="directions_car" class="car-tab-icon" />
+          <div class="car-tab-label">Авто</div>
+        </q-route-tab>
       </q-tabs>
     </q-page-sticky>
   </q-layout>

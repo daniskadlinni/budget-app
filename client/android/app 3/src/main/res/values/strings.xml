@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">НашЛДБюджет</string>
-    <string name="title_activity_main">НашЛДБюджет</string>
-    <string name="package_name">com.ourbudget.app</string>
-    <string name="custom_url_scheme">com.ourbudget.app</string>
-</resources>

@@ -15,3 +15,40 @@ body {
 .text-negative {
   color: #ff5722 !important;
 }
+
+.car-toolbar-title {
+  color: #ff5722 !important;
+}
+
+.q-tabs .q-tab.car-route-tab,
+.q-tabs .q-tab.car-route-tab:hover,
+.q-tabs .q-tab.car-route-tab:focus,
+.q-tabs .q-tab.car-route-tab:active,
+.q-tabs .q-tab.car-route-tab.q-tab--active,
+.q-tabs .q-tab.car-route-tab.q-router-link--active,
+.q-tabs .q-tab.car-route-tab .q-icon,
+.q-tabs .q-tab.car-route-tab .q-tab__icon,
+.q-tabs .q-tab.car-route-tab .q-tab__label,
+.q-tabs .q-tab.car-route-tab:hover .q-icon,
+.q-tabs .q-tab.car-route-tab:hover .q-tab__icon,
+.q-tabs .q-tab.car-route-tab:hover .q-tab__label,
+.q-tabs .q-tab.car-route-tab:focus .q-icon,
+.q-tabs .q-tab.car-route-tab:focus .q-tab__icon,
+.q-tabs .q-tab.car-route-tab:focus .q-tab__label,
+.q-tabs .q-tab.car-route-tab:active .q-icon,
+.q-tabs .q-tab.car-route-tab:active .q-tab__icon,
+.q-tabs .q-tab.car-route-tab:active .q-tab__label,
+.q-tabs .q-tab.car-route-tab.q-tab--active .q-icon,
+.q-tabs .q-tab.car-route-tab.q-tab--active .q-tab__icon,
+.q-tabs .q-tab.car-route-tab.q-tab--active .q-tab__label,
+.q-tabs .q-tab.car-route-tab.q-router-link--active .q-icon,
+.q-tabs .q-tab.car-route-tab.q-router-link--active .q-tab__icon,
+.q-tabs .q-tab.car-route-tab.q-router-link--active .q-tab__label {
+  color: #ff5722 !important;
+}
+
+.car-tab-icon,
+.car-tab-label {
+  color: #ff5722 !important;
+  fill: #ff5722 !important;
+}
