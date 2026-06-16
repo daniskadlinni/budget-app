@@ -264,8 +264,8 @@ const importSberText = async () => {
       let type = t.type;
       let categoryId = catMap?.id || 'other';
 
-      const fuelKeywords = ['AZS', 'ГАЗ', 'НЕФТЬ', 'ЛУКОЙЛ', 'ШЕЛЛ', 'БП', 'ТРАНСНЕФТЬ', 'РОСНЕФТЬ', 'ЗАПРАВКА', 'АЗС', 'ГАЗПРОМНЕФТЬ', 'ПЕТРОТЕСТ', 'ФАКЕЛ', 'АВТОГРАД', 'MIRATORG', 'НАВИГАТОР', 'VOSTOK', 'ВЕСТА', 'KUPER'];
-      const supermarketKeywords = ['PYATEROCHKA', 'LENTA', 'MAGNIT', 'AUCHAN', 'OKEY', 'DIXY', 'METRO', 'KRAUT', 'BILLA', 'PEREKRESTOK', 'PYATEROCHKA', 'ПЯТЕРОЧКА', 'ЛЕНТА', 'МАГНИТ', 'АШАН', 'ОКЕЙ', 'ДИКСИ', 'МЕТРО', 'КРАУТ', 'БИЛЛА', 'ПЕРЕКРЕСТОК'];
+      const fuelKeywords = ['AZS', 'ГАЗ', 'НЕФТЬ', 'ЛУКОЙЛ', 'ШЕЛЛ', 'БП', 'ТРАНСНЕФТЬ', 'РОСНЕФТЬ', 'ЗАПРАВКА', 'АЗС', 'ГАЗПРОМНЕФТЬ', 'ПЕТРОТЕСТ', 'ФАКЕЛ', 'АВТОГРАД', 'MIRATORG', 'НАВИГАТОР', 'VOSTOK', 'ВЕСТА'];
+      const supermarketKeywords = ['PYATEROCHKA', 'LENTA', 'MAGNIT', 'AUCHAN', 'OKEY', 'DIXY', 'METRO', 'KRAUT', 'BILLA', 'PEREKRESTOK', 'KUPER', 'PYATEROCHKA', 'ПЯТЕРОЧКА', 'ЛЕНТА', 'МАГНИТ', 'АШАН', 'ОКЕЙ', 'ДИКСИ', 'МЕТРО', 'КРАУТ', 'БИЛЛА', 'ПЕРЕКРЕСТОК', 'КУПЕР'];
 
       if (t.category === 'Перевод с карты') {
         if (t.description.includes('Операция по счету') || t.description.includes('на платежный счет')) {
