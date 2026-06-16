@@ -264,6 +264,8 @@ const importSberText = async () => {
       let type = t.type;
       let categoryId = catMap?.id || 'other';
 
+      const fuelKeywords = ['AZS', 'ГАЗ', 'НЕФТЬ', 'ЛУКОЙЛ', 'ШЕЛЛ', 'БП ', 'ТРАНСНЕФТЬ', 'РОСНЕФТЬ', 'ЗАПРАВКА', 'АЗС', 'ГАЗПРОМНЕФТЬ', 'ПЕТРОТЕСТ', 'ФАКЕЛ', 'АВТОГРАД', 'MIRATORG', 'НАВИГАТОР', 'VOSTOK', 'ВЕСТА', 'KUPER', 'PYATEROCHKA', 'LENTA', 'MAGNIT', 'AUCHAN', 'OKEY', 'SPOT', 'ВБ'];
+
       if (t.category === 'Перевод с карты') {
         if (t.description.includes('Операция по счету') || t.description.includes('на платежный счет')) {
           type = 'income';
@@ -273,6 +275,11 @@ const importSberText = async () => {
       } else if (t.category === 'Внесение наличных') {
         type = 'income';
         categoryId = 'income';
+      }
+
+      const descUpper = t.description.toUpperCase();
+      if (fuelKeywords.some(k => descUpper.includes(k))) {
+        categoryId = 'fuel';
       }
 
       return {
