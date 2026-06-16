@@ -1,25 +1,25 @@
 <template>
   <q-page padding>
     <div class="text-h5 q-mb-md">Главная</div>
-    <div class="text-h4 q-mb-lg">Баланс: {{ formatNumber(totalBalance) }} RUB</div>
+    <div class="dashboard-balance q-mb-lg">Баланс: {{ formatNumber(totalBalance) }} RUB</div>
 
     <div class="row q-col-gutter-md q-mb-lg">
-      <div class="col-4">
+      <div class="col-12 col-sm-4">
         <q-card>
           <q-card-section><div class="text-h6">Доходы</div></q-card-section>
-          <q-card-section class="text-positive text-h5">+{{ formatNumber(totalIncome) }}</q-card-section>
+          <q-card-section class="dashboard-amount text-positive">+{{ formatNumber(totalIncome) }}</q-card-section>
         </q-card>
       </div>
-      <div class="col-4">
+      <div class="col-12 col-sm-4">
         <q-card>
           <q-card-section><div class="text-h6">Расходы</div></q-card-section>
-          <q-card-section class="text-negative text-h5">-{{ formatNumber(totalExpense) }}</q-card-section>
+          <q-card-section class="dashboard-amount text-negative">-{{ formatNumber(totalExpense) }}</q-card-section>
         </q-card>
       </div>
-      <div class="col-4">
+      <div class="col-12 col-sm-4">
         <q-card>
           <q-card-section><div class="text-h6">Переводы</div></q-card-section>
-          <q-card-section class="text-primary text-h5">{{ formatNumber(totalTransfer) }}</q-card-section>
+          <q-card-section class="dashboard-amount text-primary">{{ formatNumber(totalTransfer) }}</q-card-section>
         </q-card>
       </div>
     </div>
@@ -92,3 +92,28 @@ onMounted(() => {
   });
 });
 </script>
+
+<style scoped>
+.dashboard-balance {
+  font-size: 2rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-amount {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 599px) {
+  .dashboard-balance {
+    font-size: 1.5rem;
+  }
+
+  .dashboard-amount {
+    font-size: 1.35rem;
+  }
+}
+</style>
