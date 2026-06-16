@@ -15,6 +15,13 @@ const $q = useQuasar();
 const loading = ref(true);
 let syncInterval: number | null = null;
 
+const handleVisibilityChange = async () => {
+  if (document.visibilityState === 'visible') {
+    await syncFromServer();
+    window.dispatchEvent(new CustomEvent('dataUpdated'));
+  }
+};
+
 onMounted(async () => {
   initStorage();
   const result = await syncFromServer();
@@ -25,17 +32,11 @@ onMounted(async () => {
     $q.notify({ message: `Синхронизировано. Локально: ${result.transactions}, на сервере: ${result.serverTransactions}`, color: 'positive', timeout: 3000 });
   }
 
-  const handleVisibilityChange = async () => {
-    if (document.visibilityState === 'visible') {
-      await syncFromServer();
-      window.dispatchEvent(new CustomEvent('dataUpdated'));
-    }
-  };
-
   document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
 onUnmounted(() => {
   if (syncInterval) window.clearInterval(syncInterval);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>

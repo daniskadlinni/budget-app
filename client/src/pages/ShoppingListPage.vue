@@ -156,12 +156,6 @@ const deleteItem = (id: string) => {
   });
 };
 
-const togglePurchased = (item: any) => {
-  purchasingItem.value = item;
-  purchaseForm.value = { actualPrice: item.plannedPrice, accountId: 'general-cash' };
-  showPurchaseDialog.value = true;
-};
-
 const toggleSelect = (id: string) => {
   const idx = selectedItems.value.indexOf(id);
   if (idx >= 0) selectedItems.value.splice(idx, 1);

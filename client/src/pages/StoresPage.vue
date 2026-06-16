@@ -178,7 +178,7 @@ const deleteStore = (id: string) => {
   });
 };
 
-const searchAddress = (val: string, update: Function) => {
+const searchAddress = (val: string, update: (callback: () => void) => void) => {
   if (!val || val.length < 3) {
     update(() => { addressOptions.value = []; });
     return;

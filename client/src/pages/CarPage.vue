@@ -161,7 +161,7 @@ const fuelTransactions = computed(() => {
   refreshKey.value;
   return getTransactions()
     .filter(t => t.categoryId === 'fuel')
-    .sort((a, b) => b.date.localeCompare(b.date));
+    .sort((a, b) => b.date.localeCompare(a.date));
 });
 
 const monthlySpent = computed(() => {

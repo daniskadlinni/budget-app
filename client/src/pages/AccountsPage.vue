@@ -42,8 +42,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import { initStorage, getAccounts, getAccountBalance, formatNumber, saveTransaction } from 'src/utils/storage';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { initStorage, getAccounts, getAccountBalance, formatNumber } from 'src/utils/storage';
 import { syncToServer } from 'src/utils/sync';
 import { useQuasar } from 'quasar';
 import { v4 as uuidv4 } from 'uuid';
@@ -53,6 +53,7 @@ const accounts = ref<any[]>([]);
 const version = ref(0);
 const showTransfer = ref(false);
 const transfer = ref({ from: 'general-cash', to: 'general-card', amount: '' });
+let balanceTimer: number | null = null;
 
 const accountOpts = [
   { label: 'Общий — Наличные', value: 'general-cash' },
@@ -92,13 +93,20 @@ const doTransfer = () => {
   $q.notify({ message: 'Перевод выполнен', color: 'positive' });
 };
 
+const handleDataUpdated = () => {
+  accounts.value = getAccounts();
+};
+
 onMounted(() => {
   initStorage();
   accounts.value = getAccounts();
-  setInterval(() => version.value++, 1000);
+  balanceTimer = window.setInterval(() => version.value++, 1000);
 
-  window.addEventListener('dataUpdated', () => {
-    accounts.value = getAccounts();
-  });
+  window.addEventListener('dataUpdated', handleDataUpdated);
+});
+
+onUnmounted(() => {
+  if (balanceTimer) window.clearInterval(balanceTimer);
+  window.removeEventListener('dataUpdated', handleDataUpdated);
 });
 </script>

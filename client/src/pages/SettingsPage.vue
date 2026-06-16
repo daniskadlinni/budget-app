@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
-import { exportData as exp, importData as imp, initStorage, getCategories, getTransactions, saveTransaction } from 'src/utils/storage';
+import { exportData as exp, importData as imp, getCategories, getTransactions } from 'src/utils/storage';
 import { clearTransactionsOnServer, syncToServer } from 'src/utils/sync';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -211,19 +211,6 @@ const importSberText = async () => {
     saveRules();
 
     const existing = getTransactions();
-    const categoryMap: Record<string, { id: string; type: 'income' | 'expense' }> = {
-      'Транспорт': { id: 'transport', type: 'expense' },
-      'Супермаркеты': { id: 'supermarket', type: 'expense' },
-      'Рестораны и кафе': { id: 'restaurants', type: 'expense' },
-      'Автомобиль': { id: 'auto', type: 'expense' },
-      'Одежда и аксессуары': { id: 'clothes', type: 'expense' },
-      'Прочие операции': { id: 'other', type: 'expense' },
-      'Оплата по QR–коду СБП': { id: 'other', type: 'expense' },
-      'Внесение наличных': { id: 'income', type: 'income' },
-      'Заработная плата': { id: 'salary', type: 'income' },
-      'Компенсации': { id: 'income', type: 'income' }
-    };
-
     const sberToAppCategory: Record<string, { id: string; type: 'income' | 'expense'; name: string }> = {
       'Транспорт': { id: 'transport', type: 'expense', name: 'Транспорт' },
       'Супермаркеты': { id: 'supermarket', type: 'expense', name: 'Супермаркеты' },
@@ -395,9 +382,7 @@ const parseCSV = (text: string): { date: string; amount: number; type: 'income' 
       dateStr = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
     } else if (dateStr.includes('-')) {
       const parts = dateStr.split('-');
-      if (parts[0].length === 4) {
-        dateStr = dateStr;
-      } else {
+      if (parts[0].length !== 4) {
         dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
       }
     }
@@ -454,7 +439,7 @@ const importCSV = (e: Event) => {
       localStorage.setItem('budget_transactions', JSON.stringify(all));
       syncToServer();
 
-$q.notify({ message: `Импортировано ${toAdd.length} операций${toAdd.length < newTransactions.length ? ` (${newTransactions.length - toAdd.length} дублей) ` : ''}`, color: 'positive' });
+      $q.notify({ message: `Импортировано ${newTransactions.length} операций`, color: 'positive' });
       setTimeout(() => location.reload(), 1000);
     } catch (err) {
       $q.notify({ message: 'Ошибка импорта CSV', color: 'negative' });

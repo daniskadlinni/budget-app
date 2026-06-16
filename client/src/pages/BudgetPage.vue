@@ -68,8 +68,6 @@ const totalBudget = computed(() => budgets.value.reduce((s, b) => s + b.limit, 0
 
 const loadBudgets = () => {
   const stored = getBudgets();
-  const now = new Date();
-  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   budgets.value = stored.map((b: any) => ({
     ...b,

@@ -1,10 +1,5 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'https://zxrpluuneassstffzday.supabase.co/functions/v1'
-});
 
 interface User {
   id: string;
@@ -24,12 +19,18 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('tokens', JSON.stringify({ access, refresh }));
   };
 
-  const login = async (email: string, password: string) => {
-    return { user: { id: 'local', email }, accessToken: 'local', refreshToken: 'local' };
+  const login = async (email: string, _password: string) => {
+    const result = { user: { id: 'local', email, baseCurrency: 'RUB' }, accessToken: 'local', refreshToken: 'local' };
+    user.value = result.user;
+    setTokens(result.accessToken, result.refreshToken);
+    return result;
   };
 
-  const register = async (email: string, password: string, baseCurrency = 'USD') => {
-    return { user: { id: 'local', email }, accessToken: 'local', refreshToken: 'local' };
+  const register = async (email: string, _password: string, baseCurrency = 'RUB') => {
+    const result = { user: { id: 'local', email, baseCurrency }, accessToken: 'local', refreshToken: 'local' };
+    user.value = result.user;
+    setTokens(result.accessToken, result.refreshToken);
+    return result;
   };
 
   const logout = () => {

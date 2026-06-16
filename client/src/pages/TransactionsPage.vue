@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
-import { getAccounts, getTransactions, saveTransaction, deleteTransaction, getCategories, getAccountBalance, formatNumber } from 'src/utils/storage';
+import { getTransactions, saveTransaction, deleteTransaction, getCategories, getAccountBalance, formatNumber } from 'src/utils/storage';
 import { useQuasar } from 'quasar';
 
 const $q = useQuasar();
@@ -167,26 +167,30 @@ const openDialog = () => {
   showDialog.value = true;
 };
 
+const handleKeydown = (e: KeyboardEvent) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+    e.preventDefault();
+    openDialog();
+  }
+};
+
+const handleDataUpdated = () => {
+  categories.value = getCategories();
+  transactions.value = getTransactions();
+};
+
 onMounted(() => {
   categories.value = getCategories();
   transactions.value = getTransactions();
 
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-      e.preventDefault();
-      openDialog();
-    }
-  });
-
+  document.addEventListener('keydown', handleKeydown);
   document.addEventListener('open-add-transaction', openDialog);
-
-  window.addEventListener('dataUpdated', () => {
-    categories.value = getCategories();
-    transactions.value = getTransactions();
-  });
+  window.addEventListener('dataUpdated', handleDataUpdated);
 });
 
 onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
   document.removeEventListener('open-add-transaction', openDialog);
+  window.removeEventListener('dataUpdated', handleDataUpdated);
 });
 </script>

@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { getProducts, saveProduct as sProduct, deleteProduct as dProduct, addProductToShopping, getStores, formatNumber } from 'src/utils/storage';
 
@@ -53,13 +53,11 @@ const showDialog = ref(false);
 const editing = ref(false);
 const form = ref({ id: '', name: '', storeId: '', plannedPrice: '', lastPrice: '' });
 
-const storeOptions = computed(() => stores.value.map(s => ({ label: s.name, value: s.id })));
-
 const getStoreName = (id: string) => stores.value.find(s => s.id === id)?.name || '';
 
 const openAddDialog = () => {
   editing.value = false;
-  form.value = { id: '', name: '', plannedPrice: '', lastPrice: '' };
+  form.value = { id: '', name: '', storeId: '', plannedPrice: '', lastPrice: '' };
   showDialog.value = true;
 };
 

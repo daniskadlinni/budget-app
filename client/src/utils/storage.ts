@@ -40,6 +40,10 @@ const syncToServer = async () => {
       budgets: getBudgets(),
       goals: getGoals(),
       subscriptions: getSubscriptions(),
+      stores: getStores(),
+      shopping: getShoppingItems(),
+      products: getProducts(),
+      reminders: getReminders(),
       deletedIds: getDeletedIds()
     };
     await fetch(API_URL, {
@@ -64,6 +68,18 @@ const syncFromServer = async () => {
     const localTransactions = getTransactions();
     const localBudgets = getBudgets();
     const localGoals = getGoals();
+    const localStores = getStores();
+    const localShopping = getShoppingItems();
+    const localProducts = getProducts();
+    const localReminders = getReminders();
+
+    const mergeById = (local: any[], server: any[]) => {
+      const map = new Map();
+      [...local, ...server].forEach((item) => {
+        if (item?.id) map.set(item.id, item);
+      });
+      return Array.from(map.values());
+    };
 
     if (data.accounts) {
       const localIds = new Set(localAccounts.map(a => a.id));
@@ -97,10 +113,22 @@ const syncFromServer = async () => {
     }
     if (data.subscriptions) {
       const localSubs = getSubscriptions();
-      const localIds = new Set(localSubs.map(s => s.id));
-      const newFromServer = data.subscriptions.filter(s => !localIds.has(s.id));
-      const merged = [...localSubs, ...newFromServer];
-      localStorage.setItem('budget_subscriptions', JSON.stringify(merged));
+      localStorage.setItem('budget_subscriptions', JSON.stringify(mergeById(localSubs, data.subscriptions)));
+    }
+    if (data.stores) {
+      localStorage.setItem('budget_stores', JSON.stringify(mergeById(localStores, data.stores)));
+    }
+    if (data.shopping) {
+      localStorage.setItem('budget_shopping', JSON.stringify(mergeById(localShopping, data.shopping)));
+    }
+    if (data.products) {
+      localStorage.setItem('budget_products', JSON.stringify(mergeById(localProducts, data.products)));
+    }
+    if (data.reminders) {
+      localStorage.setItem('budget_reminders', JSON.stringify(mergeById(localReminders, data.reminders)));
+    }
+    if (data.deletedIds) {
+      localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(data.deletedIds));
     }
     return data;
   } catch (e) {

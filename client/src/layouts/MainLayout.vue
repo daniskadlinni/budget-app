@@ -71,11 +71,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useAuthStore } from 'stores/auth';
 const drawer = ref(false);
 const router = useRouter();
 const route = useRoute();
-const authStore = useAuthStore();
 
 const isShopping = computed(() => ['/shopping', '/products', '/reminders', '/stores'].some(p => route.path.startsWith(p)));
 const isCar = computed(() => ['/car'].some(p => route.path.startsWith(p)));
