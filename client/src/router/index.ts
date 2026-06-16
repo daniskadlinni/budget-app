@@ -17,6 +17,7 @@ const routes = [
       { path: 'products', component: () => import('pages/ProductsPage.vue') },
       { path: 'reminders', component: () => import('pages/RemindersPage.vue') },
       { path: 'stores', component: () => import('pages/StoresPage.vue') },
+      { path: 'car', component: () => import('pages/CarPage.vue') },
       { path: 'settings', component: () => import('pages/SettingsPage.vue') }
     ]
   },

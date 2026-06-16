@@ -3,7 +3,7 @@
     <q-header elevated>
       <q-toolbar>
         <q-btn flat round dense icon="menu" @click="drawer = !drawer" />
-        <q-toolbar-title>{{ isShopping ? 'Покупки' : 'НашЛДбюджет' }}</q-toolbar-title>
+        <q-toolbar-title>{{ tabTitle }}</q-toolbar-title>
       </q-toolbar>
     </q-header>
     <q-drawer v-if="!isShopping" v-model="drawer" show-if-above bordered>
@@ -36,6 +36,15 @@
         </q-item>
       </q-list>
     </q-drawer>
+    <q-drawer v-if="isCar" v-model="drawer" show-if-above bordered>
+      <q-list>
+        <q-item-label header>Автомобиль</q-item-label>
+        <q-item clickable v-ripple :to="'/car'" @click="drawer = false">
+          <q-item-section avatar><q-icon name="local_gas_station" /></q-item-section>
+          <q-item-section>Заправки</q-item-section>
+        </q-item>
+      </q-list>
+    </q-drawer>
     <q-page-container><router-view /></q-page-container>
     <q-page-sticky v-if="!isShopping && route.path !== '/dashboard'" position="bottom-left" :offset="[18, 18]">
       <q-btn round color="primary" size="lg" icon="add" @click="handleFabClick" />
@@ -43,10 +52,14 @@
     <q-page-sticky v-if="isShopping" position="bottom-left" :offset="[18, 18]">
       <q-btn round color="primary" size="lg" icon="add" @click="handleShoppingFabClick" />
     </q-page-sticky>
+    <q-page-sticky v-if="isCar" position="bottom-left" :offset="[18, 18]">
+      <q-btn round color="primary" size="lg" icon="add" @click="handleCarFabClick" />
+    </q-page-sticky>
     <q-page-sticky position="bottom" class="full-width">
       <q-tabs align="center" active-color="primary" indicator-color="primary" dense no-caps>
         <q-route-tab to="/dashboard" icon="dashboard" label="Бюджет" />
         <q-route-tab to="/shopping" icon="shopping_cart" label="Покупки" />
+        <q-route-tab to="/car" icon="directions_car" label="Авто" />
       </q-tabs>
     </q-page-sticky>
   </q-layout>
@@ -62,6 +75,13 @@ const route = useRoute();
 const authStore = useAuthStore();
 
 const isShopping = computed(() => ['/shopping', '/products', '/reminders', '/stores'].some(p => route.path.startsWith(p)));
+const isCar = computed(() => ['/car'].some(p => route.path.startsWith(p)));
+
+const tabTitle = computed(() => {
+  if (isShopping.value) return 'Покупки';
+  if (isCar.value) return 'Автомобиль';
+  return 'НашЛДбюджет';
+});
 
 const handleFabClick = () => {
   window.dispatchEvent(new CustomEvent('open-add-transaction'));
@@ -80,6 +100,10 @@ const handleShoppingFabClick = () => {
   } else {
     window.dispatchEvent(new CustomEvent('open-add-shopping'));
   }
+};
+
+const handleCarFabClick = () => {
+  window.dispatchEvent(new CustomEvent('open-add-fuel'));
 };
 
 onMounted(() => {
