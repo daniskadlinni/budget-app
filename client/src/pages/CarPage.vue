@@ -18,6 +18,32 @@
       </q-card-section>
     </q-card>
 
+    <q-card class="q-mb-md">
+      <q-card-section>
+        <div class="text-h6 q-mb-sm">Аналитика</div>
+        <div class="row q-gutter-sm">
+          <div class="col">
+            <div class="text-caption text-grey">Пробег за период</div>
+            <q-input v-model.number="totalKm" type="number" dense suffix="км" @blur="saveCarSettings" />
+          </div>
+          <div class="col">
+            <div class="text-caption text-grey">Цена топлива</div>
+            <q-input v-model.number="fuelPrice" type="number" dense suffix="₽/л" @blur="saveCarSettings" />
+          </div>
+        </div>
+        <div class="row q-gutter-sm q-mt-sm">
+          <div class="col">
+            <div class="text-caption text-grey">Расход на 100 км</div>
+            <div class="text-h6">{{ consumptionPer100km }} л</div>
+          </div>
+          <div class="col">
+            <div class="text-caption text-grey">Стоимость на 100 км</div>
+            <div class="text-h6">{{ costPer100km }} ₽</div>
+          </div>
+        </div>
+      </q-card-section>
+    </q-card>
+
     <q-card>
       <q-card-section>
         <div class="text-h6 q-mb-md">Операции</div>
@@ -61,13 +87,33 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { getTransactions, deleteTransaction as delTrans, saveTransaction, getAccountBalance } from 'src/utils/storage';
-import { formatNumber } from 'src/utils/storage';
+import { getTransactions, deleteTransaction as delTrans, saveTransaction } from 'src/utils/storage';
 
 const showAddDialog = ref(false);
 const newAmount = ref(0);
 const newDate = ref(new Date().toISOString().split('T')[0]);
 const newNote = ref('');
+
+const totalKm = ref(parseInt(localStorage.getItem('car_total_km') || '0'));
+const fuelPrice = ref(parseFloat(localStorage.getItem('car_fuel_price') || '50'));
+
+const consumptionPer100km = computed(() => {
+  if (!totalKm.value || !fuelPrice.value) return '0';
+  const totalFuel = monthlySpent.value / fuelPrice.value;
+  const consumption = (totalFuel / totalKm.value) * 100;
+  return consumption.toFixed(1);
+});
+
+const costPer100km = computed(() => {
+  if (!totalKm.value) return '0';
+  const cost = monthlySpent.value / totalKm.value * 100;
+  return formatNumber(cost);
+});
+
+const saveCarSettings = () => {
+  localStorage.setItem('car_total_km', totalKm.value.toString());
+  localStorage.setItem('car_fuel_price', fuelPrice.value.toString());
+};
 
 const fuelTransactions = computed(() => {
   return getTransactions()
