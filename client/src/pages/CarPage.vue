@@ -26,10 +26,6 @@
             <div class="text-caption text-grey">Пробег за период</div>
             <q-input v-model.number="totalKm" type="number" dense suffix="км" @blur="saveCarSettings" />
           </div>
-          <div class="col">
-            <div class="text-caption text-grey">Цена топлива</div>
-            <q-input v-model.number="fuelPrice" type="number" dense suffix="₽/л" @blur="saveCarSettings" />
-          </div>
         </div>
         <div class="row q-gutter-sm q-mt-sm">
           <div class="col">
@@ -105,7 +101,6 @@ const calcAmount = () => {
 };
 
 const totalKm = ref(parseInt(localStorage.getItem('car_total_km') || '0'));
-const fuelPrice = ref(parseFloat(localStorage.getItem('car_fuel_price') || '50'));
 
 const totalMileageFromTransactions = computed(() => {
   return getTransactions()
@@ -115,8 +110,11 @@ const totalMileageFromTransactions = computed(() => {
 
 const consumptionPer100km = computed(() => {
   const km = totalMileageFromTransactions.value || totalKm.value;
-  if (!km || !fuelPrice.value) return '0';
-  const totalFuel = monthlySpent.value / fuelPrice.value;
+  if (!km) return '0';
+  const totalFuel = getTransactions()
+    .filter(t => t.categoryId === 'fuel' && t.liters)
+    .reduce((s, t) => s + (t.liters || 0), 0);
+  if (!totalFuel) return '0';
   const consumption = (totalFuel / km) * 100;
   return consumption.toFixed(1);
 });
