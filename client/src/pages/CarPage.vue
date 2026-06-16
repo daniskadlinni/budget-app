@@ -23,7 +23,7 @@
         <div class="text-h6 q-mb-sm">Аналитика</div>
         <div class="row q-gutter-sm">
           <div class="col">
-            <div class="text-caption text-grey">Пробег за период</div>
+            <div class="text-caption text-grey">Одометр (текущий)</div>
             <q-input v-model.number="totalKm" type="number" dense suffix="км" @blur="saveCarSettings" />
           </div>
         </div>
@@ -70,7 +70,7 @@
         <q-card-section>
           <q-input v-model="newLiters" type="number" label="Количество литров" suffix="л" @update:model-value="calcAmount" />
           <q-input v-model="newPricePerLiter" type="number" label="Цена за литр" suffix="₽/л" class="q-mt-sm" @update:model-value="calcAmount" />
-          <q-input v-model="newMileage" type="number" label="Пробег" suffix="км" class="q-mt-sm" />
+          <q-input v-model="newMileage" type="number" label="Одометр" suffix="км" class="q-mt-sm" />
           <q-input v-model="newAmount" type="number" label="Сумма" suffix="₽" class="q-mt-sm" readonly />
           <q-input v-model="newDate" type="date" label="Дата" class="q-mt-sm" />
           <q-input v-model="newNote" label="Примечание" class="q-mt-sm" />
@@ -103,9 +103,19 @@ const calcAmount = () => {
 const totalKm = ref(parseInt(localStorage.getItem('car_total_km') || '0'));
 
 const totalMileageFromTransactions = computed(() => {
-  return getTransactions()
+  const fuelTransactions = getTransactions()
     .filter(t => t.categoryId === 'fuel' && t.mileage)
-    .reduce((s, t) => s + (t.mileage || 0), 0);
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  let totalMileage = 0;
+  for (let i = 1; i < fuelTransactions.length; i++) {
+    const prev = fuelTransactions[i - 1].mileage || 0;
+    const curr = fuelTransactions[i].mileage || 0;
+    if (curr > prev) {
+      totalMileage += curr - prev;
+    }
+  }
+  return totalMileage;
 });
 
 const consumptionPer100km = computed(() => {
@@ -171,7 +181,7 @@ const addFuel = () => {
     updatedAt: new Date().toISOString()
   });
   if (newMileage.value) {
-    totalKm.value += newMileage.value;
+    totalKm.value = newMileage.value;
     saveCarSettings();
   }
   newAmount.value = 0;
