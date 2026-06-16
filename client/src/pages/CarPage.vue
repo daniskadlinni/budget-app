@@ -111,8 +111,8 @@ const totalMileageFromTransactions = computed(() => {
 
   let totalMileage = 0;
   for (let i = 1; i < fuelTransactions.length; i++) {
-    const prev = parseInt(fuelTransactions[i - 1].mileage, 10) || 0;
-    const curr = parseInt(fuelTransactions[i].mileage, 10) || 0;
+    const prev = parseFloat(fuelTransactions[i - 1].mileage) || 0;
+    const curr = parseFloat(fuelTransactions[i].mileage) || 0;
     if (curr > prev) {
       totalMileage += curr - prev;
     }
@@ -123,16 +123,13 @@ const totalMileageFromTransactions = computed(() => {
 const consumptionPer100km = computed(() => {
   refreshKey.value;
   const km = totalMileageFromTransactions.value || totalKm.value;
-  console.log('consumptionPer100km:', { km, totalMileage: totalMileageFromTransactions.value, totalKm: totalKm.value });
 
   if (!km) return '0';
 
   const fuelTransactions = getTransactions().filter(t => t.categoryId === 'fuel');
-  console.log('fuelTransactions:', fuelTransactions.length, fuelTransactions.map(t => ({ amount: t.amount, liters: t.liters })));
 
-  const totalFuel = fuelTransactions.reduce((s, t) => s + (t.liters || 0), 0);
-  const totalSpent = fuelTransactions.reduce((s, t) => s + (t.amount || 0), 0);
-  console.log('totalFuel:', totalFuel, 'totalSpent:', totalSpent, 'pricePerLiter:', newPricePerLiter.value);
+  const totalFuel = fuelTransactions.reduce((s, t) => s + (parseFloat(t.liters) || 0), 0);
+  const totalSpent = fuelTransactions.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
 
   if (totalFuel > 0) {
     const consumption = (totalFuel / km) * 100;
@@ -173,7 +170,7 @@ const monthlySpent = computed(() => {
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   return getTransactions()
     .filter(t => t.categoryId === 'fuel' && t.type === 'expense' && t.date.startsWith(monthKey))
-    .reduce((s, t) => s + t.amount, 0);
+    .reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
 });
 
 const weeklySpent = computed(() => {
@@ -183,7 +180,7 @@ const weeklySpent = computed(() => {
   const weekKey = weekAgo.toISOString().split('T')[0];
   return getTransactions()
     .filter(t => t.categoryId === 'fuel' && t.type === 'expense' && t.date >= weekKey)
-    .reduce((s, t) => s + t.amount, 0);
+    .reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
 });
 
 const addFuel = () => {
