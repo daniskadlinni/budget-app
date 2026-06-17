@@ -85,7 +85,16 @@ const tabTitle = computed(() => {
 });
 
 const handleFabClick = () => {
-  window.dispatchEvent(new CustomEvent('open-add-transaction'));
+  const path = router.currentRoute.value.path;
+  if (path === '/budget') {
+    window.dispatchEvent(new CustomEvent('open-add-budget'));
+  } else if (path === '/goals') {
+    window.dispatchEvent(new CustomEvent('open-add-goal'));
+  } else if (path === '/recurring') {
+    window.dispatchEvent(new CustomEvent('open-add-subscription'));
+  } else {
+    window.dispatchEvent(new CustomEvent('open-add-transaction'));
+  }
 };
 
 const handleShoppingFabClick = () => {
@@ -117,6 +126,7 @@ const budgetMenuItems = [
   { to: '/categories', icon: 'category', label: 'Категории' },
   { to: '/analytics', icon: 'analytics', label: 'Аналитика' },
   { to: '/budget', icon: 'savings', label: 'Бюджет' },
+  { to: '/recurring', icon: 'event_repeat', label: 'Регулярные' },
   { to: '/goals', icon: 'flag', label: 'Цели' },
   { to: '/settings', icon: 'settings', label: 'Настройки' }
 ];

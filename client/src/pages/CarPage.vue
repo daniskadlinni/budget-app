@@ -1,18 +1,26 @@
 <template>
   <q-page padding>
-    <div class="text-h5 q-mb-md">Заправки</div>
+    <div class="text-h5 q-mb-md">Автомобиль</div>
 
     <q-card class="q-mb-md">
       <q-card-section>
         <div class="text-h6">Статистика</div>
-        <div class="row q-gutter-sm">
-          <div class="col">
+        <div class="row q-col-gutter-md">
+          <div class="col-6 col-sm-3">
             <div class="text-caption text-grey">За месяц</div>
             <div class="text-h6">{{ formatNumber(monthlySpent) }} ₽</div>
           </div>
-          <div class="col">
+          <div class="col-6 col-sm-3">
             <div class="text-caption text-grey">За неделю</div>
             <div class="text-h6">{{ formatNumber(weeklySpent) }} ₽</div>
+          </div>
+          <div class="col-6 col-sm-3">
+            <div class="text-caption text-grey">Обслуживание</div>
+            <div class="text-h6">{{ formatNumber(serviceSpent) }} ₽</div>
+          </div>
+          <div class="col-6 col-sm-3">
+            <div class="text-caption text-grey">Всего авто</div>
+            <div class="text-h6">{{ formatNumber(totalCarSpent) }} ₽</div>
           </div>
         </div>
       </q-card-section>
@@ -43,11 +51,11 @@
     <q-card>
       <q-card-section>
         <div class="text-h6 q-mb-md">Операции</div>
-        <q-list v-if="fuelTransactions.length > 0" separator>
-          <q-item v-for="t in fuelTransactions" :key="t.id">
+        <q-list v-if="carTransactions.length > 0" separator>
+          <q-item v-for="t in carTransactions" :key="t.id">
             <q-item-section>
               <q-item-label>{{ formatNumber(t.amount) }} ₽</q-item-label>
-              <q-item-label caption>{{ t.date }} {{ t.note ? '— ' + t.note : '' }}</q-item-label>
+              <q-item-label caption>{{ t.date }} · {{ getCarTypeLabel(t) }} {{ t.note ? '— ' + t.note : '' }}</q-item-label>
             </q-item-section>
             <q-item-section side>
               <q-btn flat round dense icon="delete" color="negative" @click="deleteTransaction(t.id)" />
@@ -65,13 +73,18 @@
     <q-dialog v-model="showAddDialog">
       <q-card style="min-width: 350px">
         <q-card-section>
-          <div class="text-h6">Добавить заправку</div>
+          <div class="text-h6">Добавить расход авто</div>
         </q-card-section>
         <q-card-section>
-          <q-input v-model="newLiters" type="number" label="Количество литров" suffix="л" @update:model-value="calcAmount" />
-          <q-input v-model="newPricePerLiter" type="number" label="Цена за литр" suffix="₽/л" class="q-mt-sm" @update:model-value="calcAmount" />
+          <q-btn-toggle v-model="entryType" toggle-color="primary" :options="[
+            { label: 'Заправка', value: 'fuel' },
+            { label: 'Обслуживание', value: 'service' }
+          ]" class="q-mb-md" />
+          <q-select v-if="entryType === 'service'" v-model="newServiceType" :options="serviceTypeOptions" label="Тип расхода" emit-value map-options filled />
+          <q-input v-if="entryType === 'fuel'" v-model="newLiters" type="number" label="Количество литров" suffix="л" @update:model-value="calcAmount" />
+          <q-input v-if="entryType === 'fuel'" v-model="newPricePerLiter" type="number" label="Цена за литр" suffix="₽/л" class="q-mt-sm" @update:model-value="calcAmount" />
           <q-input v-model="newMileage" type="number" label="Одометр" suffix="км" class="q-mt-sm" />
-          <q-input v-model="newAmount" type="number" label="Сумма" suffix="₽" class="q-mt-sm" readonly />
+          <q-input v-model="newAmount" type="number" label="Сумма" suffix="₽" class="q-mt-sm" :readonly="entryType === 'fuel'" />
           <q-input v-model="newDate" type="date" label="Дата" class="q-mt-sm" />
           <q-input v-model="newNote" label="Примечание" class="q-mt-sm" />
         </q-card-section>
@@ -89,13 +102,23 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { getTransactions, deleteTransaction as delTrans, saveTransaction, formatNumber } from 'src/utils/storage';
 
 const showAddDialog = ref(false);
+const entryType = ref<'fuel' | 'service'>('fuel');
 const newAmount = ref(0);
 const newLiters = ref(0);
 const newPricePerLiter = ref(0);
 const newMileage = ref(0);
+const newServiceType = ref('service');
 const newDate = ref(new Date().toISOString().split('T')[0]);
 const newNote = ref('');
 const refreshKey = ref(0);
+
+const serviceTypeOptions = [
+  { label: 'Ремонт', value: 'repair' },
+  { label: 'Масло и расходники', value: 'oil' },
+  { label: 'Страховка', value: 'insurance' },
+  { label: 'Штрафы', value: 'fine' },
+  { label: 'Прочее', value: 'service' }
+];
 
 const calcAmount = () => {
   newAmount.value = (newLiters.value || 0) * (newPricePerLiter.value || 0);
@@ -164,6 +187,17 @@ const fuelTransactions = computed(() => {
     .sort((a, b) => b.date.localeCompare(a.date));
 });
 
+const serviceTransactions = computed(() => {
+  refreshKey.value;
+  return getTransactions()
+    .filter(t => t.categoryId === 'car-service')
+    .sort((a, b) => b.date.localeCompare(a.date));
+});
+
+const carTransactions = computed(() =>
+  [...fuelTransactions.value, ...serviceTransactions.value].sort((a, b) => b.date.localeCompare(a.date))
+);
+
 const monthlySpent = computed(() => {
   refreshKey.value;
   const now = new Date();
@@ -183,19 +217,37 @@ const weeklySpent = computed(() => {
     .reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
 });
 
+const serviceSpent = computed(() => {
+  refreshKey.value;
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return getTransactions()
+    .filter(t => t.categoryId === 'car-service' && t.type === 'expense' && t.date.startsWith(monthKey))
+    .reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+});
+
+const totalCarSpent = computed(() => monthlySpent.value + serviceSpent.value);
+
+const getCarTypeLabel = (transaction: any) => {
+  if (transaction.categoryId === 'fuel') return 'Заправка';
+  const type = serviceTypeOptions.find(option => option.value === transaction.carServiceType);
+  return type?.label || 'Обслуживание';
+};
+
 const addFuel = () => {
   if (!newAmount.value) return;
   saveTransaction({
-    id: 'fuel-' + Date.now(),
+    id: `${entryType.value}-${Date.now()}`,
     accountId: 'general-card',
     type: 'expense',
     amount: parseFloat(newAmount.value.toString()),
     date: newDate.value,
     note: newNote.value,
-    categoryId: 'fuel',
+    categoryId: entryType.value === 'fuel' ? 'fuel' : 'car-service',
     mileage: newMileage.value || null,
-    liters: newLiters.value || null,
-    pricePerLiter: newPricePerLiter.value || null,
+    liters: entryType.value === 'fuel' ? newLiters.value || null : null,
+    pricePerLiter: entryType.value === 'fuel' ? newPricePerLiter.value || null : null,
+    carServiceType: entryType.value === 'service' ? newServiceType.value : null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });
@@ -207,6 +259,7 @@ const addFuel = () => {
   newLiters.value = 0;
   newPricePerLiter.value = 0;
   newMileage.value = 0;
+  newServiceType.value = 'service';
   newNote.value = '';
   showAddDialog.value = false;
   refreshKey.value++;

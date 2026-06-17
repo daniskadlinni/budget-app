@@ -22,6 +22,9 @@ const defaultCategories = [
   { id: 'cat-entertainment', name: 'Развлечения', type: 'expense', color: '#9C27B0' },
   { id: 'cat-utilities', name: 'Коммунальные', type: 'expense', color: '#607D8B' },
   { id: 'cat-shopping', name: 'Покупки', type: 'expense', color: '#E91E63' },
+  { id: 'fuel', name: 'Бензин', type: 'expense', color: '#FF5722' },
+  { id: 'car-service', name: 'Обслуживание авто', type: 'expense', color: '#795548' },
+  { id: 'subscriptions', name: 'Регулярные платежи', type: 'expense', color: '#00BCD4' },
   { id: 'cat-health', name: 'Здоровье', type: 'expense', color: '#F44336' },
   { id: 'cat-education', name: 'Образование', type: 'expense', color: '#3F51B5' },
   { id: 'cat-other-exp', name: 'Прочее', type: 'expense', color: '#9E9E9E' },
@@ -143,6 +146,13 @@ export const initStorage = () => {
   }
   if (!localStorage.getItem(STORAGE_KEYS.categories)) {
     localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(defaultCategories));
+  } else {
+    const categories = getCategories();
+    const ids = new Set(categories.map((category: any) => category.id));
+    const missing = defaultCategories.filter(category => !ids.has(category.id));
+    if (missing.length) {
+      localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify([...categories, ...missing]));
+    }
   }
   if (!localStorage.getItem(STORAGE_KEYS.transactions)) {
     localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify([]));
@@ -173,6 +183,14 @@ export const exportData = () => ({
   accounts: getAccounts(),
   categories: getCategories(),
   transactions: getTransactions(),
+  budgets: getBudgets(),
+  goals: getGoals(),
+  subscriptions: getSubscriptions(),
+  stores: getStores(),
+  shopping: getShoppingItems(),
+  products: getProducts(),
+  reminders: getReminders(),
+  deletedIds: getDeletedIds(),
   exportedAt: new Date().toISOString()
 });
 
@@ -180,6 +198,14 @@ export const importData = (data) => {
   if (data.accounts) localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(data.accounts));
   if (data.categories) localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(data.categories));
   if (data.transactions) localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(data.transactions));
+  if (data.budgets) localStorage.setItem('budget_limits', JSON.stringify(data.budgets));
+  if (data.goals) localStorage.setItem('budget_goals', JSON.stringify(data.goals));
+  if (data.subscriptions) localStorage.setItem('budget_subscriptions', JSON.stringify(data.subscriptions));
+  if (data.stores) localStorage.setItem('budget_stores', JSON.stringify(data.stores));
+  if (data.shopping) localStorage.setItem('budget_shopping', JSON.stringify(data.shopping));
+  if (data.products) localStorage.setItem('budget_products', JSON.stringify(data.products));
+  if (data.reminders) localStorage.setItem('budget_reminders', JSON.stringify(data.reminders));
+  if (data.deletedIds) localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(data.deletedIds));
   syncToServer();
 };
 

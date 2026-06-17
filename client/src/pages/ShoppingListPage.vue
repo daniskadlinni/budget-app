@@ -36,7 +36,11 @@
         </q-item-section>
       </q-item>
       <q-item v-if="filteredItems.length === 0">
-        <q-item-section class="text-grey">Список пуст</q-item-section>
+        <q-item-section class="text-center q-pa-lg">
+          <q-icon name="shopping_cart" size="48px" color="grey" />
+          <div class="text-h6 q-mt-sm">Список пуст</div>
+          <q-btn color="primary" icon="add" label="Добавить покупку" class="q-mt-md" @click="openAddDialog" />
+        </q-item-section>
       </q-item>
     </q-list>
 

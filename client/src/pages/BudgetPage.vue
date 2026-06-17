@@ -6,6 +6,12 @@
 
     <q-btn color="primary" icon="add" label="Добавить бюджет" class="q-mb-md" @click="openAdd" />
 
+    <div v-if="budgets.length === 0" class="text-center q-pa-lg">
+      <q-icon name="savings" size="48px" color="grey" />
+      <div class="text-h6 q-mt-sm">Бюджеты не настроены</div>
+      <q-btn color="primary" icon="add" label="Создать бюджет" class="q-mt-md" @click="openAdd" />
+    </div>
+
     <q-card v-for="budget in budgets" :key="budget.id" class="q-mb-md">
       <q-card-section>
         <div class="row items-center justify-between">
@@ -104,8 +110,8 @@ onMounted(() => {
   loadBudgets();
 
   window.addEventListener('dataUpdated', () => {
-    budgets.value = getBudgets();
+    loadBudgets();
   });
-  window.addEventListener('open-add-transaction', () => openAdd());
+  window.addEventListener('open-add-budget', () => openAdd());
 });
 </script>

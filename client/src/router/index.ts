@@ -12,6 +12,7 @@ const routes = [
       { path: 'categories', component: () => import('pages/CategoriesPage.vue') },
       { path: 'analytics', component: () => import('pages/AnalyticsPage.vue') },
       { path: 'budget', component: () => import('pages/BudgetPage.vue') },
+      { path: 'recurring', component: () => import('pages/RecurringPaymentsPage.vue') },
       { path: 'goals', component: () => import('pages/GoalsPage.vue') },
       { path: 'shopping', component: () => import('pages/ShoppingListPage.vue') },
       { path: 'products', component: () => import('pages/ProductsPage.vue') },

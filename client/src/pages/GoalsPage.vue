@@ -4,7 +4,13 @@
 
     <q-btn color="primary" icon="add" label="Новая цель" class="q-mb-md" @click="openAdd" />
 
-    <q-list separator>
+    <div v-if="goals.length === 0" class="text-center q-pa-lg">
+      <q-icon name="flag" size="48px" color="grey" />
+      <div class="text-h6 q-mt-sm">Нет финансовых целей</div>
+      <q-btn color="primary" icon="add" label="Создать цель" class="q-mt-md" @click="openAdd" />
+    </div>
+
+    <q-list v-else separator>
       <q-item v-for="goal in goals" :key="goal.id">
         <q-item-section avatar>
           <q-icon name="flag" :color="goal.completed ? 'positive' : 'primary'" />
@@ -117,7 +123,7 @@ onMounted(() => {
   window.addEventListener('dataUpdated', () => {
     goals.value = getGoals();
   });
-  window.addEventListener('open-add-transaction', () => openAdd());
+  window.addEventListener('open-add-goal', () => openAdd());
 });
 
 const doFund = () => {

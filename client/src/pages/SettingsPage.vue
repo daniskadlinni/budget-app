@@ -2,61 +2,81 @@
   <q-page padding>
     <div class="text-h5 q-mb-md">Настройки</div>
 
-    <q-card class="q-mb-md">
-      <q-card-section>
-        <div class="text-h6">Тема</div>
-        <q-toggle v-model="darkMode" label="Тёмная тема" @update:model-value="toggleTheme" />
-      </q-card-section>
-    </q-card>
+    <q-tabs v-model="settingsTab" dense active-color="primary" indicator-color="primary" align="justify" class="q-mb-md">
+      <q-tab name="general" icon="tune" label="Общие" />
+      <q-tab name="backup" icon="backup" label="Копия" />
+      <q-tab name="import" icon="upload_file" label="Импорт" />
+      <q-tab name="rules" icon="rule" label="Правила" />
+      <q-tab name="danger" icon="warning" label="Сброс" />
+    </q-tabs>
 
-    <q-card class="q-mb-md">
-      <q-card-section>
-        <div class="text-h6">Резервное копирование</div>
-        <q-btn color="primary" label="Экспорт данных" class="q-mt-md" @click="exportData" />
-        <q-btn color="secondary" label="Импорт данных" class="q-mt-md q-ml-md" @click="triggerImport" />
-        <input ref="fileInput" type="file" accept=".json" style="display:none" @change="importData" />
-      </q-card-section>
-    </q-card>
+    <q-tab-panels v-model="settingsTab" animated>
+      <q-tab-panel name="general" class="q-pa-none">
+        <q-card class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">Тема</div>
+            <q-toggle v-model="darkMode" label="Тёмная тема" @update:model-value="toggleTheme" />
+          </q-card-section>
+        </q-card>
+      </q-tab-panel>
 
-    <q-card class="q-mb-md">
-      <q-card-section>
-        <div class="text-h6">Импорт из CSV</div>
-        <p class="text-caption text-grey">Импорт транзакций из банковской выписки (CSV)</p>
-        <q-select v-model="csvAccount" :options="accountOptions" label="Счёт для импорта" emit-value map-options filled class="q-mt-sm" />
-        <q-btn color="secondary" label="Импорт CSV" class="q-mt-md" @click="triggerCsvImport" />
-        <input ref="csvFileInput" type="file" accept=".csv" style="display:none" @change="importCSV" />
-      </q-card-section>
-    </q-card>
+      <q-tab-panel name="backup" class="q-pa-none">
+        <q-card class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">Резервное копирование</div>
+            <q-btn color="primary" label="Экспорт данных" class="q-mt-md" @click="exportData" />
+            <q-btn color="secondary" label="Импорт данных" class="q-mt-md q-ml-md" @click="triggerImport" />
+            <input ref="fileInput" type="file" accept=".json" style="display:none" @change="importData" />
+          </q-card-section>
+        </q-card>
+      </q-tab-panel>
 
-    <q-card class="q-mb-md">
-      <q-card-section>
-        <div class="text-h6">Правила категорий</div>
-        <p class="text-caption text-grey">Ключевое слово → Категория при импорте</p>
-        <div v-for="(rule, idx) in categoryRules" :key="idx" class="row q-gutter-sm q-mb-sm items-center">
-          <q-input v-model="rule.keyword" label="Ключевое слово" dense style="min-width: 120px" />
-          <q-select v-model="rule.categoryId" :options="categoryOptions" label="Категория" emit-value map-options dense style="min-width: 150px" />
-          <q-btn flat round dense icon="delete" color="negative" @click="removeRule(idx)" />
-        </div>
-        <q-btn flat color="primary" label="Добавить правило" @click="addRule" />
-      </q-card-section>
-    </q-card>
+      <q-tab-panel name="import" class="q-pa-none">
+        <q-card class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">Импорт из CSV</div>
+            <p class="text-caption text-grey">Импорт транзакций из банковской выписки (CSV)</p>
+            <q-select v-model="csvAccount" :options="accountOptions" label="Счёт для импорта" emit-value map-options filled class="q-mt-sm" />
+            <q-btn color="secondary" label="Импорт CSV" class="q-mt-md" @click="triggerCsvImport" />
+            <input ref="csvFileInput" type="file" accept=".csv" style="display:none" @change="importCSV" />
+          </q-card-section>
+        </q-card>
 
-    <q-card class="q-mb-md">
-      <q-card-section>
-        <div class="text-h6">Импорт из текста Сбербанка</div>
-        <p class="text-caption text-grey">Скопируйте текст из PDF выписки Сбербанка и вставьте сюда</p>
-        <q-select v-model="sberAccount" :options="accountOptions" label="Счёт" emit-value map-options filled class="q-mt-sm" />
-        <q-input v-model="sberText" type="textarea" label="Вставьте текст из PDF" filled class="q-mt-sm" style="min-height: 150px" />
-        <q-btn color="secondary" label="Импортировать" class="q-mt-md" @click="importSberText" :loading="sberLoading" />
-      </q-card-section>
-    </q-card>
+        <q-card class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">Импорт из текста Сбербанка</div>
+            <p class="text-caption text-grey">Скопируйте текст из PDF выписки Сбербанка и вставьте сюда</p>
+            <q-select v-model="sberAccount" :options="accountOptions" label="Счёт" emit-value map-options filled class="q-mt-sm" />
+            <q-input v-model="sberText" type="textarea" label="Вставьте текст из PDF" filled class="q-mt-sm" style="min-height: 150px" />
+            <q-btn color="secondary" label="Импортировать" class="q-mt-md" @click="importSberText" :loading="sberLoading" />
+          </q-card-section>
+        </q-card>
+      </q-tab-panel>
 
-    <q-card class="q-mb-md">
-      <q-card-section>
-        <div class="text-h6 text-negative">Опасная зона</div>
-        <q-btn color="negative" label="Сбросить все данные" class="q-mt-md" @click="confirmReset" />
-      </q-card-section>
-    </q-card>
+      <q-tab-panel name="rules" class="q-pa-none">
+        <q-card class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">Правила категорий</div>
+            <p class="text-caption text-grey">Ключевое слово → Категория при импорте</p>
+            <div v-for="(rule, idx) in categoryRules" :key="idx" class="row q-gutter-sm q-mb-sm items-center">
+              <q-input v-model="rule.keyword" label="Ключевое слово" dense style="min-width: 120px" />
+              <q-select v-model="rule.categoryId" :options="categoryOptions" label="Категория" emit-value map-options dense style="min-width: 150px" />
+              <q-btn flat round dense icon="delete" color="negative" @click="removeRule(idx)" />
+            </div>
+            <q-btn flat color="primary" label="Добавить правило" @click="addRule" />
+          </q-card-section>
+        </q-card>
+      </q-tab-panel>
+
+      <q-tab-panel name="danger" class="q-pa-none">
+        <q-card class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6 text-negative">Опасная зона</div>
+            <q-btn color="negative" label="Сбросить все данные" class="q-mt-md" @click="confirmReset" />
+          </q-card-section>
+        </q-card>
+      </q-tab-panel>
+    </q-tab-panels>
   </q-page>
 </template>
 
@@ -68,6 +88,7 @@ import { clearTransactionsOnServer, syncToServer } from 'src/utils/sync';
 import { v4 as uuidv4 } from 'uuid';
 
 const $q = useQuasar();
+const settingsTab = ref('general');
 const darkMode = ref($q.dark.isActive);
 const fileInput = ref<HTMLInputElement | null>(null);
 const csvFileInput = ref<HTMLInputElement | null>(null);
