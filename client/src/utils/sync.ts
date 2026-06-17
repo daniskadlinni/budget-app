@@ -166,6 +166,19 @@ export const autoSync = () => {
 
 export const clearTransactionsOnServer = async () => {
   try {
+    const transactionsToDelete = JSON.parse(localStorage.getItem('budget_transactions') || '[]');
+    const deletedIds = [
+      ...getDeletedIds(),
+      ...transactionsToDelete
+        .filter((transaction: any) => transaction?.id)
+        .map((transaction: any) => ({ type: 'transaction', id: transaction.id }))
+    ];
+    const uniqueDeletedIds = Array.from(
+      new Map(deletedIds.map((item: any) => [`${item.type}:${item.id}`, item])).values()
+    );
+
+    localStorage.setItem(DELETED_KEY, JSON.stringify(uniqueDeletedIds));
+
     const data = {
       accounts: JSON.parse(localStorage.getItem('budget_accounts') || '[]'),
       categories: JSON.parse(localStorage.getItem('budget_categories') || '[]'),
@@ -176,7 +189,8 @@ export const clearTransactionsOnServer = async () => {
       stores: JSON.parse(localStorage.getItem('budget_stores') || '[]'),
       shopping: JSON.parse(localStorage.getItem('budget_shopping') || '[]'),
       products: JSON.parse(localStorage.getItem('budget_products') || '[]'),
-      reminders: JSON.parse(localStorage.getItem('budget_reminders') || '[]')
+      reminders: JSON.parse(localStorage.getItem('budget_reminders') || '[]'),
+      deletedIds: uniqueDeletedIds
     };
     const res = await fetch(API_URL, {
       method: 'POST',

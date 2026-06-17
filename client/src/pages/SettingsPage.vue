@@ -466,6 +466,7 @@ const toAppTransaction = (item: SberTransaction) => {
   const now = new Date().toISOString();
   return {
     id: uuidv4(),
+    source: 'sber-pdf',
     accountId: sberAccount.value,
     type: item.type,
     amount: item.amount,
@@ -749,8 +750,10 @@ const confirmReset = () => {
       cancel: true,
       persistent: true
     }).onOk(async () => {
-      localStorage.setItem('budget_transactions', '[]');
       await clearTransactionsOnServer();
+      localStorage.setItem('budget_transactions', '[]');
+      sberPreview.value = [];
+      sberText.value = '';
       $q.notify({ message: 'Операции удалены', color: 'positive' });
       setTimeout(() => location.reload(), 1000);
     });
