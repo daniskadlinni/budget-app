@@ -156,8 +156,20 @@ const topExpenseCategory = computed(() => {
   return { name, amount };
 });
 
+const getTransactionTimestamp = (transaction: any) => {
+  const value = transaction.createdAt || transaction.updatedAt || (transaction.date ? `${transaction.date}T00:00:00` : '');
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
+const compareTransactionsByDateTimeDesc = (a: any, b: any) => {
+  const dateCompare = (a.date || '').localeCompare(b.date || '');
+  if (dateCompare !== 0) return -dateCompare;
+  return getTransactionTimestamp(b) - getTransactionTimestamp(a);
+};
+
 const lastTransactions = computed(() => {
-  return [...transactions.value].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+  return [...transactions.value].sort(compareTransactionsByDateTimeDesc).slice(0, 5);
 });
 
 const accountOpts = [

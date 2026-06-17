@@ -459,7 +459,29 @@ export const saveShoppingItem = (item: any) => {
 };
 
 export const deleteShoppingItem = (id: string) => {
-  const items = getShoppingItems().filter((i: any) => i.id !== id);
+  const currentItems = getShoppingItems();
+  const item = currentItems.find((i: any) => i.id === id);
+  const linkedTransaction = item
+    ? getTransactions().find((transaction: any) => {
+      if (item.transactionId && transaction.id === item.transactionId) return true;
+      if (transaction.shoppingItemId === id) return true;
+
+      const purchasedDate = item.purchasedAt?.split('T')[0];
+      const actualPrice = parseFloat((item.actualPrice || 0).toString()) || 0;
+      return item.purchased
+        && transaction.type === 'expense'
+        && transaction.categoryId === 'cat-shopping'
+        && transaction.note === item.name
+        && transaction.date === purchasedDate
+        && parseFloat((transaction.amount || 0).toString()) === actualPrice;
+    })
+    : null;
+
+  if (linkedTransaction) {
+    deleteTransaction(linkedTransaction.id);
+  }
+
+  const items = currentItems.filter((i: any) => i.id !== id);
   localStorage.setItem(STORAGE_KEYS_SHOPPING, JSON.stringify(items));
   const deleted = getDeletedIds();
   deleted.push({ type: 'shopping', id });
@@ -527,10 +549,12 @@ export const markShoppingItemPurchased = (id: string, actualPrice: number, accou
   if (idx >= 0) {
     const price = parseFloat((actualPrice || items[idx].plannedPrice || 0).toString()) || 0;
     const purchasedAt = new Date().toISOString();
+    const transactionId = items[idx].transactionId || 't-' + Date.now();
     items[idx].purchased = true;
     items[idx].checked = false;
     items[idx].actualPrice = price;
     items[idx].purchasedAt = purchasedAt;
+    items[idx].transactionId = transactionId;
     items[idx].updatedAt = purchasedAt;
     localStorage.setItem(STORAGE_KEYS_SHOPPING, JSON.stringify(items));
 
@@ -544,17 +568,21 @@ export const markShoppingItemPurchased = (id: string, actualPrice: number, accou
     }
 
     const transaction = {
-      id: 't-' + Date.now(),
+      id: transactionId,
       accountId,
       type: 'expense',
       amount: price,
       date: new Date().toISOString().split('T')[0],
       note: items[idx].name,
       categoryId: 'cat-shopping',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      source: 'shopping',
+      shoppingItemId: items[idx].id,
+      createdAt: purchasedAt,
+      updatedAt: purchasedAt
     };
-    saveTransaction(transaction);
+    const existingTransaction = getTransactions().find((t: any) => t.id === transactionId);
+    if (existingTransaction) updateTransaction(transactionId, transaction);
+    else saveTransaction(transaction);
   }
   syncToServer();
 };

@@ -176,10 +176,24 @@ const filteredTransactions = computed(() => {
   return list;
 });
 
+const getTransactionTimestamp = (transaction: any) => {
+  const value = transaction.createdAt || transaction.updatedAt || (transaction.date ? `${transaction.date}T00:00:00` : '');
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
+const compareByDateTime = (a: any, b: any, direction: 'asc' | 'desc') => {
+  const dateCompare = (a.date || '').localeCompare(b.date || '');
+  if (dateCompare !== 0) return direction === 'desc' ? -dateCompare : dateCompare;
+
+  const timeCompare = getTransactionTimestamp(a) - getTransactionTimestamp(b);
+  return direction === 'desc' ? -timeCompare : timeCompare;
+};
+
 const sortedTransactions = computed(() => {
   const list = [...filteredTransactions.value];
-  if (sortBy.value === 'date-desc') list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  else if (sortBy.value === 'date-asc') list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  if (sortBy.value === 'date-desc') list.sort((a, b) => compareByDateTime(a, b, 'desc'));
+  else if (sortBy.value === 'date-asc') list.sort((a, b) => compareByDateTime(a, b, 'asc'));
   else if (sortBy.value === 'amount-desc') list.sort((a, b) => b.amount - a.amount);
   else if (sortBy.value === 'amount-asc') list.sort((a, b) => a.amount - b.amount);
   return list;
