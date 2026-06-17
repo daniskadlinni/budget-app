@@ -465,11 +465,16 @@ const isDuplicateTransaction = (newT: SberTransaction, existing: any[]) => {
   }
 
   return existing.some((t: any) =>
-    t.date === newT.date &&
-    parseFloat(t.amount) === newT.amount &&
-    t.type === newT.type &&
     t.accountId === sberAccount.value &&
-    (t.note || '').includes(newT.description.slice(0, 32))
+    (
+      t.importKey === newT.key ||
+      (
+        t.date === newT.date &&
+        parseFloat(t.amount) === newT.amount &&
+        t.type === newT.type &&
+        (t.note || '').includes(newT.description.slice(0, 32))
+      )
+    )
   );
 };
 
@@ -478,6 +483,7 @@ const toAppTransaction = (item: SberTransaction) => {
   return {
     id: uuidv4(),
     source: 'sber-pdf',
+    importKey: item.key,
     accountId: sberAccount.value,
     type: item.type,
     amount: item.amount,

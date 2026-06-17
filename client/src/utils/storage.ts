@@ -175,6 +175,20 @@ export const saveTransaction = (t) => {
   syncToServer();
 };
 
+export const updateTransaction = (id: string, patch: any) => {
+  const transactions = getTransactions();
+  const idx = transactions.findIndex((t: any) => t.id === id);
+  if (idx < 0) return;
+
+  transactions[idx] = {
+    ...transactions[idx],
+    ...patch,
+    updatedAt: new Date().toISOString()
+  };
+  localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(transactions));
+  syncToServer();
+};
+
 export const deleteTransaction = (id) => {
   const transactions = getTransactions().filter(t => t.id !== id && t.transferToId !== id);
   localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(transactions));

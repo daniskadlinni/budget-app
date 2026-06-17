@@ -45,6 +45,7 @@
           <q-item-label :class="t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-negative' : 'text-primary'">
             {{ t.type === 'income' ? '+' : t.type === 'expense' ? '-' : '' }}{{ formatNumber(t.amount) }}
           </q-item-label>
+          <q-btn v-if="t.type !== 'transfer'" flat round icon="edit" color="primary" @click.stop="openCategoryDialog(t)" />
           <q-btn flat round icon="delete" color="negative" @click.stop="remove(t.id)" />
         </q-item-section>
       </q-item>
@@ -70,6 +71,19 @@
         </q-card-section>
       </q-card>
     </q-dialog>
+
+    <q-dialog v-model="showCategoryDialog">
+      <q-card style="min-width: 320px">
+        <q-card-section><div class="text-h6">Категория операции</div></q-card-section>
+        <q-card-section>
+          <q-select v-model="categoryForm.categoryId" :options="editCatOpts" label="Категория" emit-value map-options filled />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Отмена" v-close-popup />
+          <q-btn color="primary" label="Сохранить" @click="saveCategoryEdit" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -77,7 +91,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { v4 as uuidv4 } from 'uuid';
-import { getTransactions, saveTransaction, deleteTransaction, getCategories, getAccountBalance, formatNumber } from 'src/utils/storage';
+import { getTransactions, saveTransaction, updateTransaction, deleteTransaction, getCategories, getAccountBalance, formatNumber } from 'src/utils/storage';
 import { useQuasar } from 'quasar';
 
 const $q = useQuasar();
@@ -85,6 +99,7 @@ const route = useRoute();
 const router = useRouter();
 
 const showDialog = ref(false);
+const showCategoryDialog = ref(false);
 const transactions = ref<any[]>([]);
 const categories = ref<any[]>([]);
 const search = ref('');
@@ -102,6 +117,7 @@ const sortOptions = [
 ];
 
 const form = ref({ type: 'expense', accountId: 'general-cash', fromId: 'general-cash', toId: 'general-card', categoryId: '', amount: '', date: new Date().toISOString().split('T')[0], note: '' });
+const categoryForm = ref({ id: '', type: 'expense', categoryId: '' });
 
 const types = [
   { label: 'Расход', value: 'expense' },
@@ -127,9 +143,23 @@ const catOpts = computed(() => {
 
 const allCatOpts = computed(() => categories.value.map(c => ({ label: c.name, value: c.id })));
 
+const editCatOpts = computed(() => {
+  return categories.value
+    .filter(c => c.type === categoryForm.value.type)
+    .map(c => ({ label: c.name, value: c.id }));
+});
+
+const matchesTypeFilter = (transaction: any) => {
+  if (!filterType.value) return true;
+  if (filterType.value === 'transfer') {
+    return transaction.type === 'transfer' || transaction.categoryId === 'transfers';
+  }
+  return transaction.type === filterType.value;
+};
+
 const filteredTransactions = computed(() => {
   let list = [...transactions.value];
-  if (filterType.value) list = list.filter(t => t.type === filterType.value);
+  if (filterType.value) list = list.filter(matchesTypeFilter);
   if (filterAccount.value) list = list.filter(t => t.accountId === filterAccount.value || t.transferToId === filterAccount.value);
   if (filterCategory.value) list = list.filter(t => t.categoryId === filterCategory.value);
   if (dateFrom.value) list = list.filter(t => t.date >= dateFrom.value);
@@ -200,6 +230,22 @@ const save = () => {
 const remove = (id: string) => {
   deleteTransaction(id);
   transactions.value = getTransactions();
+};
+
+const openCategoryDialog = (transaction: any) => {
+  categoryForm.value = {
+    id: transaction.id,
+    type: transaction.type,
+    categoryId: transaction.categoryId || ''
+  };
+  showCategoryDialog.value = true;
+};
+
+const saveCategoryEdit = () => {
+  if (!categoryForm.value.id) return;
+  updateTransaction(categoryForm.value.id, { categoryId: categoryForm.value.categoryId });
+  transactions.value = getTransactions();
+  showCategoryDialog.value = false;
 };
 
 const openDialog = (event?: Event | 'expense' | 'income' | 'transfer') => {
