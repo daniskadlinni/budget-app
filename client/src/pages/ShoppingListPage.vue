@@ -5,12 +5,19 @@
     <q-btn color="primary" icon="add" label="Добавить" class="q-mb-md" @click="openAddDialog" />
     <q-btn v-if="selectedItems.length > 0" color="positive" icon="check" :label="`Куплено (${selectedItems.length})`" class="q-mb-md" @click="openBatchPurchaseDialog" />
 
+    <q-btn-toggle v-model="statusFilter" toggle-color="primary" :options="[
+      { label: 'Активные', value: 'active' },
+      { label: 'Купленные', value: 'purchased' },
+      { label: 'Все', value: 'all' }
+    ]" class="q-mb-md" />
+
     <q-select v-if="stores.length > 0" v-model="filterStore" :options="storeOptions" label="Фильтр по магазину" clearable class="q-mb-md" />
 
     <q-list separator>
       <q-item v-for="item in filteredItems" :key="item.id">
         <q-item-section avatar>
-          <q-checkbox :model-value="selectedItems.includes(item.id)" @update:model-value="toggleSelect(item.id)" color="positive" />
+          <q-checkbox v-if="!item.purchased" :model-value="selectedItems.includes(item.id)" @update:model-value="toggleSelect(item.id)" color="positive" />
+          <q-icon v-else name="check_circle" color="positive" />
         </q-item-section>
         <q-item-section>
           <q-item-label :class="{ 'text-strike': item.purchased, 'text-grey-6': item.purchased }">{{ item.name }}</q-item-label>
@@ -23,6 +30,7 @@
           </div>
         </q-item-section>
         <q-item-section side>
+          <q-btn v-if="!item.purchased" flat round dense icon="check" color="positive" @click="openPurchaseDialog(item)" />
           <q-btn flat round dense icon="edit" @click="editItem(item)" />
           <q-btn flat round dense icon="delete" color="negative" @click="deleteItem(item.id)" />
         </q-item-section>
@@ -96,6 +104,7 @@ const stores = ref<any[]>([]);
 const products = ref<any[]>([]);
 const items = ref<any[]>([]);
 const filterStore = ref(null);
+const statusFilter = ref<'active' | 'purchased' | 'all'>('active');
 const selectedItems = ref<string[]>([]);
 
 const showItemDialog = ref(false);
@@ -113,7 +122,9 @@ const productOptions = computed(() => products.value.map(p => ({ label: p.name, 
 const accountOptions = computed(() => getAccounts().map(a => ({ label: a.name, value: a.id })));
 
 const filteredItems = computed(() => {
-  let list = items.value.filter(i => !i.purchased);
+  let list = [...items.value];
+  if (statusFilter.value === 'active') list = list.filter(i => !i.purchased);
+  if (statusFilter.value === 'purchased') list = list.filter(i => i.purchased);
   if (filterStore.value) list = list.filter(i => i.storeId === filterStore.value);
   return list;
 });
@@ -154,6 +165,12 @@ const deleteItem = (id: string) => {
     deleteShoppingItem(id);
     items.value = getShoppingItems();
   });
+};
+
+const openPurchaseDialog = (item: any) => {
+  purchasingItem.value = item;
+  purchaseForm.value = { actualPrice: item.plannedPrice || '', accountId: 'general-cash' };
+  showPurchaseDialog.value = true;
 };
 
 const toggleSelect = (id: string) => {

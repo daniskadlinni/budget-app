@@ -5,9 +5,28 @@
       <q-btn color="primary" icon="add" label="Добавить" @click="openDialog" />
     </div>
 
-    <div class="row q-mb-md q-gutter-md">
-      <q-input v-model="search" placeholder="Поиск..." dense style="min-width: 200px" clearable />
-      <q-select v-model="sortBy" :options="sortOptions" label="Сортировка" dense emit-value map-options style="min-width: 150px" />
+    <div class="row q-col-gutter-sm q-mb-md">
+      <div class="col-12 col-sm-4 col-md-3">
+        <q-input v-model="search" placeholder="Поиск..." dense clearable />
+      </div>
+      <div class="col-6 col-sm-4 col-md-2">
+        <q-select v-model="filterType" :options="filterTypeOptions" label="Тип" dense emit-value map-options clearable />
+      </div>
+      <div class="col-6 col-sm-4 col-md-2">
+        <q-select v-model="filterAccount" :options="accountOpts" label="Счёт" dense emit-value map-options clearable />
+      </div>
+      <div class="col-12 col-sm-4 col-md-2">
+        <q-select v-model="filterCategory" :options="allCatOpts" label="Категория" dense emit-value map-options clearable />
+      </div>
+      <div class="col-6 col-sm-4 col-md-1">
+        <q-input v-model="dateFrom" type="date" label="С" dense clearable />
+      </div>
+      <div class="col-6 col-sm-4 col-md-1">
+        <q-input v-model="dateTo" type="date" label="По" dense clearable />
+      </div>
+      <div class="col-12 col-sm-4 col-md-1">
+        <q-select v-model="sortBy" :options="sortOptions" label="Сорт." dense emit-value map-options />
+      </div>
     </div>
 
     <q-list separator>
@@ -66,6 +85,11 @@ const showDialog = ref(false);
 const transactions = ref<any[]>([]);
 const categories = ref<any[]>([]);
 const search = ref('');
+const filterType = ref('');
+const filterAccount = ref('');
+const filterCategory = ref('');
+const dateFrom = ref('');
+const dateTo = ref('');
 const sortBy = ref('date-desc');
 const sortOptions = [
   { label: 'По дате ↓', value: 'date-desc' },
@@ -82,6 +106,12 @@ const types = [
   { label: 'Перевод', value: 'transfer' }
 ];
 
+const filterTypeOptions = [
+  { label: 'Расход', value: 'expense' },
+  { label: 'Доход', value: 'income' },
+  { label: 'Перевод', value: 'transfer' }
+];
+
 const accountOpts = [
   { label: 'Общий — Наличные', value: 'general-cash' },
   { label: 'Общий — Карта', value: 'general-card' },
@@ -92,8 +122,15 @@ const catOpts = computed(() => {
   return categories.value.filter(c => c.type === form.value.type).map(c => ({ label: c.name, value: c.id }));
 });
 
+const allCatOpts = computed(() => categories.value.map(c => ({ label: c.name, value: c.id })));
+
 const filteredTransactions = computed(() => {
   let list = [...transactions.value];
+  if (filterType.value) list = list.filter(t => t.type === filterType.value);
+  if (filterAccount.value) list = list.filter(t => t.accountId === filterAccount.value || t.transferToId === filterAccount.value);
+  if (filterCategory.value) list = list.filter(t => t.categoryId === filterCategory.value);
+  if (dateFrom.value) list = list.filter(t => t.date >= dateFrom.value);
+  if (dateTo.value) list = list.filter(t => t.date <= dateTo.value);
   if (search.value) {
     const q = search.value.toLowerCase();
     list = list.filter(t =>
@@ -162,8 +199,9 @@ const remove = (id: string) => {
   transactions.value = getTransactions();
 };
 
-const openDialog = () => {
-  form.value = { type: 'expense', accountId: 'general-cash', fromId: 'general-cash', toId: 'general-card', categoryId: '', amount: '', date: new Date().toISOString().split('T')[0], note: '' };
+const openDialog = (event?: Event) => {
+  const detail = (event as CustomEvent<{ type?: 'expense' | 'income' | 'transfer' }>)?.detail;
+  form.value = { type: detail?.type || 'expense', accountId: 'general-cash', fromId: 'general-cash', toId: 'general-card', categoryId: '', amount: '', date: new Date().toISOString().split('T')[0], note: '' };
   showDialog.value = true;
 };
 
