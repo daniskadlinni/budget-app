@@ -304,6 +304,17 @@ const removePairedInternalTransfers = (transactions: SberTransaction[]) => {
   return transactions.filter(transaction => !pairedTransactions.has(transaction));
 };
 
+const makePreviewKeysUnique = (transactions: SberTransaction[]) => {
+  const seen = new Map<string, number>();
+
+  return transactions.map(transaction => {
+    const count = seen.get(transaction.key) || 0;
+    seen.set(transaction.key, count + 1);
+    if (count === 0) return transaction;
+    return { ...transaction, key: `${transaction.key}#${count + 1}` };
+  });
+};
+
 const detectCategory = (sourceCategory: string, description: string) => {
   const descUpper = description.toUpperCase();
   const keywordCategory = findCategoryByKeyword(description);
@@ -533,8 +544,8 @@ const importSberPdf = async (e: Event) => {
       parsed.push(...parseSberText(text));
     }
     const withoutInternalTransfers = removePairedInternalTransfers(parsed);
-    const unique = new Map(withoutInternalTransfers.map(item => [item.key, item]));
-    sberPreview.value = [...unique.values()].sort((a, b) => b.date.localeCompare(a.date));
+    sberPreview.value = makePreviewKeysUnique(withoutInternalTransfers)
+      .sort((a, b) => b.date.localeCompare(a.date));
     if (!sberPreview.value.length) {
       $q.notify({ message: 'Не удалось найти операции в PDF', color: 'negative' });
     }
