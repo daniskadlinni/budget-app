@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
 
 const DELETED_IDS_KEY = 'budget_deleted_ids';
 const getDeletedIds = () => JSON.parse(localStorage.getItem(DELETED_IDS_KEY) || '[]');
+const CATEGORY_RULES_KEY = 'budget_category_rules';
 
 const API_URL = 'https://zxrpluuneassstffzday.supabase.co/functions/v1/sync-data';
 const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp4cnBsdXVuZWFzc3N0ZmZ6ZGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0OTI5MDMsImV4cCI6MjA5NjA2ODkwM30.sjXnnVnF1cyENt5x9yTH1_v7SPXul4603aSZmXuqmgc';
@@ -183,7 +184,27 @@ export const deleteTransaction = (id) => {
   syncToServer();
 };
 
+const exportedAt = () => new Date().toISOString();
+
+const getDeletedIdsByType = (types: string[]) => {
+  const allowed = new Set(types);
+  return getDeletedIds().filter((item: any) => allowed.has(item.type));
+};
+
+const mergeDeletedIdsForImport = (incoming: any[], affectedTypes?: string[]) => {
+  if (!affectedTypes) return incoming;
+
+  const affected = new Set(affectedTypes);
+  const kept = getDeletedIds().filter((item: any) => !affected.has(item.type));
+  const unique = new Map<string, any>();
+  [...kept, ...incoming].forEach((item: any) => {
+    if (item?.type && item?.id) unique.set(`${item.type}-${item.id}`, item);
+  });
+  return [...unique.values()];
+};
+
 export const exportData = () => ({
+  backupType: 'full',
   accounts: getAccounts(),
   categories: getCategories(),
   transactions: getTransactions(),
@@ -194,8 +215,32 @@ export const exportData = () => ({
   shopping: getShoppingItems(),
   products: getProducts(),
   reminders: getReminders(),
+  categoryRules: JSON.parse(localStorage.getItem(CATEGORY_RULES_KEY) || '[]'),
   deletedIds: getDeletedIds(),
-  exportedAt: new Date().toISOString()
+  exportedAt: exportedAt()
+});
+
+export const exportNumericData = () => ({
+  backupType: 'numeric',
+  transactions: getTransactions(),
+  budgets: getBudgets(),
+  goals: getGoals(),
+  deletedIds: getDeletedIdsByType(['transaction', 'budget', 'goal']),
+  exportedAt: exportedAt()
+});
+
+export const exportStructureData = () => ({
+  backupType: 'structure',
+  accounts: getAccounts(),
+  categories: getCategories(),
+  subscriptions: getSubscriptions(),
+  stores: getStores(),
+  shopping: getShoppingItems(),
+  products: getProducts(),
+  reminders: getReminders(),
+  categoryRules: JSON.parse(localStorage.getItem(CATEGORY_RULES_KEY) || '[]'),
+  deletedIds: getDeletedIdsByType(['account', 'category', 'subscription', 'store', 'shopping', 'product', 'reminder']),
+  exportedAt: exportedAt()
 });
 
 export const importData = (data) => {
@@ -209,7 +254,17 @@ export const importData = (data) => {
   if (data.shopping) localStorage.setItem('budget_shopping', JSON.stringify(data.shopping));
   if (data.products) localStorage.setItem('budget_products', JSON.stringify(data.products));
   if (data.reminders) localStorage.setItem('budget_reminders', JSON.stringify(data.reminders));
-  if (data.deletedIds) localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(data.deletedIds));
+  if (data.categoryRules) localStorage.setItem(CATEGORY_RULES_KEY, JSON.stringify(data.categoryRules));
+  if (data.deletedIds) {
+    const numericTypes = ['transaction', 'budget', 'goal'];
+    const structureTypes = ['account', 'category', 'subscription', 'store', 'shopping', 'product', 'reminder'];
+    const affectedTypes = data.backupType === 'numeric'
+      ? numericTypes
+      : data.backupType === 'structure'
+        ? structureTypes
+        : undefined;
+    localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(mergeDeletedIdsForImport(data.deletedIds, affectedTypes)));
+  }
   syncToServer();
 };
 

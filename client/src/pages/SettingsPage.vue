@@ -24,8 +24,12 @@
         <q-card class="q-mb-md">
           <q-card-section>
             <div class="text-h6">Резервное копирование</div>
-            <q-btn color="primary" label="Экспорт данных" class="q-mt-md" @click="exportData" />
-            <q-btn color="secondary" label="Импорт данных" class="q-mt-md q-ml-md" @click="triggerImport" />
+            <div class="backup-actions q-mt-md">
+              <q-btn color="primary" icon="archive" label="Полная копия" @click="exportData" />
+              <q-btn color="primary" outline icon="payments" label="Только числа" @click="exportNumericData" />
+              <q-btn color="primary" outline icon="account_tree" label="Только структура" @click="exportStructureData" />
+              <q-btn color="secondary" icon="restore" label="Восстановить" @click="triggerImport" />
+            </div>
             <input ref="fileInput" type="file" accept=".json" style="display:none" @change="importData" />
           </q-card-section>
         </q-card>
@@ -117,7 +121,14 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
-import { exportData as exp, importData as imp, getCategories, getTransactions } from 'src/utils/storage';
+import {
+  exportData as exp,
+  exportNumericData as expNumeric,
+  exportStructureData as expStructure,
+  importData as imp,
+  getCategories,
+  getTransactions
+} from 'src/utils/storage';
 import { clearTransactionsOnServer, syncToServer } from 'src/utils/sync';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -152,6 +163,7 @@ type SberTransaction = {
   description: string;
   sourceCategory: string;
   categoryId: string;
+  isOpening?: boolean;
 };
 
 const sberPreviewToAdd = computed(() => {
@@ -228,6 +240,7 @@ const sberCategoryMap: Record<string, { id: string; type: 'income' | 'expense'; 
   'Внесение наличных': { id: 'cat-other-inc', type: 'income', name: 'Прочее', color: '#9E9E9E' },
   'Заработная плата': { id: 'cat-salary', type: 'income', name: 'Зарплата', color: '#4CAF50' },
   'Компенсации': { id: 'cat-other-inc', type: 'income', name: 'Прочее', color: '#9E9E9E' },
+  'Начальный остаток': { id: 'cat-other-inc', type: 'income', name: 'Прочее', color: '#9E9E9E' },
   'Перевод с карты': { id: 'transfers', type: 'expense', name: 'Переводы', color: '#90A4AE' },
   'Перевод на карту': { id: 'transfers', type: 'income', name: 'Переводы', color: '#90A4AE' },
   'Перевод СБП': { id: 'transfers', type: 'expense', name: 'Переводы', color: '#90A4AE' }
@@ -260,9 +273,35 @@ const formatPreviewAmount = (amount: number) => amount.toLocaleString('ru-RU', {
 
 const getCategoryName = (id: string) => getCategories().find((category: any) => category.id === id)?.name || 'Прочее';
 
-const isOwnTransfer = (category: string, description: string) => {
-  if (!category.includes('Перевод')) return false;
-  return /(?:Перевод (?:для|от) Ч\. Елизавета Денисовна|KOPILKA KARTA-VKLAD|Копилка)/i.test(description);
+const getTransferCounterparty = (transaction: Pick<SberTransaction, 'sourceCategory' | 'description'>) => {
+  if (!transaction.sourceCategory.includes('Перевод')) return '';
+  const match = transaction.description.match(/Перевод (?:для|от)\s+(.+?)(?:\. Операция|$)/i);
+  return match?.[1]?.replace(/\s+/g, ' ').trim().toLowerCase() || '';
+};
+
+const removePairedInternalTransfers = (transactions: SberTransaction[]) => {
+  const grouped = new Map<string, { income: SberTransaction[]; expense: SberTransaction[] }>();
+
+  transactions.forEach(transaction => {
+    const counterparty = getTransferCounterparty(transaction);
+    if (!counterparty) return;
+
+    const key = `${transaction.date}-${transaction.amount.toFixed(2)}-${counterparty}`;
+    const group = grouped.get(key) || { income: [], expense: [] };
+    group[transaction.type].push(transaction);
+    grouped.set(key, group);
+  });
+
+  const pairedTransactions = new Set<SberTransaction>();
+  grouped.forEach(group => {
+    const pairCount = Math.min(group.income.length, group.expense.length);
+    for (let i = 0; i < pairCount; i++) {
+      pairedTransactions.add(group.income[i]);
+      pairedTransactions.add(group.expense[i]);
+    }
+  });
+
+  return transactions.filter(transaction => !pairedTransactions.has(transaction));
 };
 
 const detectCategory = (sourceCategory: string, description: string) => {
@@ -290,10 +329,8 @@ const detectCategory = (sourceCategory: string, description: string) => {
 };
 
 const normalizeSberTransaction = (raw: { date: string; amount: number; type: 'income' | 'expense'; description: string; category: string }): SberTransaction | null => {
-  if (isOwnTransfer(raw.category, raw.description)) return null;
-
   let type = raw.type;
-  if (raw.category === 'Внесение наличных' || raw.category === 'Заработная плата' || raw.category === 'Компенсации') {
+  if (raw.category === 'Внесение наличных' || raw.category === 'Заработная плата' || raw.category === 'Компенсации' || raw.category === 'Начальный остаток') {
     type = 'income';
   }
 
@@ -311,6 +348,7 @@ const normalizeSberTransaction = (raw: { date: string; amount: number; type: 'in
 
 const parseSberText = (text: string): SberTransaction[] => {
   const transactions: SberTransaction[] = [];
+  transactions.push(...parseOpeningBalances(text));
 
   const lines = text.split('\n');
 
@@ -347,6 +385,26 @@ const parseSberText = (text: string): SberTransaction[] => {
   return transactions;
 };
 
+const parseOpeningBalances = (text: string): SberTransaction[] => {
+  const match = text.match(/Остаток на\s+(\d{2})\.(\d{2})\.(\d{4})\s+([-+]?\d[\d\s\u00a0]*,\d{2})/);
+  if (!match) return [];
+
+  const amount = normalizeSberAmount(match[4]);
+  if (isNaN(amount) || amount <= 0) return [];
+
+  const date = `${match[3]}-${match[2]}-${match[1]}`;
+  return [{
+    key: `opening-${date}-${amount}`,
+    date,
+    amount,
+    type: 'income',
+    description: 'Начальный остаток Сбер',
+    sourceCategory: 'Начальный остаток',
+    categoryId: 'cat-other-inc',
+    isOpening: true
+  }];
+};
+
 const parseTransactionLine = (line: string): { date: string; amount: number; type: 'income' | 'expense'; description: string; category: string } | null => {
   const match = line.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+\d{2}:\d{2}\s+(.+)$/);
   if (!match) return null;
@@ -364,6 +422,7 @@ const parseTransactionLine = (line: string): { date: string; amount: number; typ
   const type = sign === '+' ? 'income' : 'expense';
 
   const beforeAmount = rest.substring(0, rest.indexOf(amountMatch[0])).trim();
+  const afterAmount = rest.substring(rest.indexOf(amountMatch[0]) + amountMatch[0].length);
 
   let category = 'Прочие операции';
   let description = beforeAmount;
@@ -376,18 +435,32 @@ const parseTransactionLine = (line: string): { date: string; amount: number; typ
     }
   }
 
+  const details = afterAmount
+    .replace(/^\s*\d+(?:[\s\u00a0]\d{3})*,\d{2}\s*/, '')
+    .replace(/\b\d{2}\.\d{2}\.\d{4}\s+\d{4,6}\s*/g, '')
+    .trim();
+  description = `${description} ${details}`.trim() || category;
   description = description.replace(/[*#]/g, '').replace(/\s+/g, ' ').trim();
 
   return { date: dateStr, amount, type, description, category };
 };
 
-const isDuplicateTransaction = (newT: SberTransaction, existing: any[]) => existing.some((t: any) =>
-  t.date === newT.date &&
-  parseFloat(t.amount) === newT.amount &&
-  t.type === newT.type &&
-  t.accountId === sberAccount.value &&
-  (t.note || '').includes(newT.description.slice(0, 32))
-);
+const isDuplicateTransaction = (newT: SberTransaction, existing: any[]) => {
+  if (newT.isOpening) {
+    return existing.some((t: any) =>
+      t.accountId === sberAccount.value &&
+      (t.note || '').includes('Начальный остаток Сбер')
+    );
+  }
+
+  return existing.some((t: any) =>
+    t.date === newT.date &&
+    parseFloat(t.amount) === newT.amount &&
+    t.type === newT.type &&
+    t.accountId === sberAccount.value &&
+    (t.note || '').includes(newT.description.slice(0, 32))
+  );
+};
 
 const toAppTransaction = (item: SberTransaction) => {
   const now = new Date().toISOString();
@@ -458,7 +531,8 @@ const importSberPdf = async (e: Event) => {
       const text = await extractPdfText(file);
       parsed.push(...parseSberText(text));
     }
-    const unique = new Map(parsed.map(item => [item.key, item]));
+    const withoutInternalTransfers = removePairedInternalTransfers(parsed);
+    const unique = new Map(withoutInternalTransfers.map(item => [item.key, item]));
     sberPreview.value = [...unique.values()].sort((a, b) => b.date.localeCompare(a.date));
     if (!sberPreview.value.length) {
       $q.notify({ message: 'Не удалось найти операции в PDF', color: 'negative' });
@@ -487,7 +561,7 @@ const importSberText = async () => {
   sberLoading.value = true;
 
   try {
-    const parsed = parseSberText(sberText.value);
+    const parsed = removePairedInternalTransfers(parseSberText(sberText.value));
 
     if (parsed.length === 0) {
       $q.notify({ message: 'Не удалось распознать транзакции', color: 'negative' });
@@ -512,13 +586,25 @@ const toggleTheme = () => {
   localStorage.setItem('theme', darkMode.value ? 'dark' : 'light');
 };
 
-const exportData = () => {
-  const data = exp();
+const downloadBackup = (data: unknown, filePrefix: string) => {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `budget-backup-${new Date().toISOString().split('T')[0]}.json`;
+  link.download = `${filePrefix}-${new Date().toISOString().split('T')[0]}.json`;
   link.click();
+  URL.revokeObjectURL(link.href);
+};
+
+const exportData = () => {
+  downloadBackup(exp(), 'budget-backup-full');
+};
+
+const exportNumericData = () => {
+  downloadBackup(expNumeric(), 'budget-backup-numbers');
+};
+
+const exportStructureData = () => {
+  downloadBackup(expStructure(), 'budget-backup-structure');
 };
 
 const triggerImport = () => {
@@ -671,3 +757,25 @@ const confirmReset = () => {
   });
 };
 </script>
+
+<style scoped>
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.backup-actions .q-btn {
+  min-width: 160px;
+}
+
+@media (max-width: 600px) {
+  .backup-actions {
+    flex-direction: column;
+  }
+
+  .backup-actions .q-btn {
+    width: 100%;
+  }
+}
+</style>
