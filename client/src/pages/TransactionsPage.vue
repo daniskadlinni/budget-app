@@ -118,6 +118,8 @@ const sortOptions = [
 
 const form = ref({ type: 'expense', accountId: 'general-cash', fromId: 'general-cash', toId: 'general-card', categoryId: '', amount: '', date: new Date().toISOString().split('T')[0], note: '' });
 const categoryForm = ref({ id: '', type: 'expense', categoryId: '' });
+const editingCategoryTransaction = ref<any>(null);
+const CATEGORY_RULES_KEY = 'budget_category_rules';
 
 const types = [
   { label: 'Расход', value: 'expense' },
@@ -233,6 +235,7 @@ const remove = (id: string) => {
 };
 
 const openCategoryDialog = (transaction: any) => {
+  editingCategoryTransaction.value = transaction;
   categoryForm.value = {
     id: transaction.id,
     type: transaction.type,
@@ -246,6 +249,30 @@ const saveCategoryEdit = () => {
   updateTransaction(categoryForm.value.id, { categoryId: categoryForm.value.categoryId });
   transactions.value = getTransactions();
   showCategoryDialog.value = false;
+  offerCategoryRule(editingCategoryTransaction.value, categoryForm.value.categoryId);
+};
+
+const getRuleKeyword = (transaction: any) => {
+  const note = (transaction?.note || '').replace(/\[[^\]]+\]/g, '').replace(/\s+/g, ' ').trim();
+  return note.slice(0, 48);
+};
+
+const offerCategoryRule = (transaction: any, categoryId: string) => {
+  const keyword = getRuleKeyword(transaction);
+  if (!keyword || !categoryId) return;
+
+  $q.dialog({
+    title: 'Запомнить правило',
+    message: `В будущем похожие операции сразу относить в "${getCatName(categoryId)}"?`,
+    cancel: true
+  }).onOk(() => {
+    const rules = JSON.parse(localStorage.getItem(CATEGORY_RULES_KEY) || '[]');
+    if (!rules.find((rule: any) => rule.keyword === keyword && rule.categoryId === categoryId)) {
+      rules.push({ keyword, categoryId });
+      localStorage.setItem(CATEGORY_RULES_KEY, JSON.stringify(rules));
+      $q.notify({ message: 'Правило сохранено', color: 'positive' });
+    }
+  });
 };
 
 const openDialog = (event?: Event | 'expense' | 'income' | 'transfer') => {

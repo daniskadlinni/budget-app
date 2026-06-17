@@ -50,6 +50,7 @@ const syncToServer = async () => {
       subscriptions: getSubscriptions(),
       stores: getStores(),
       shopping: getShoppingItems(),
+      shoppingTemplates: getShoppingTemplates(),
       products: getProducts(),
       reminders: getReminders(),
       deletedIds: getDeletedIds()
@@ -128,6 +129,9 @@ const syncFromServer = async () => {
     }
     if (data.shopping) {
       localStorage.setItem('budget_shopping', JSON.stringify(mergeById(localShopping, data.shopping)));
+    }
+    if (data.shoppingTemplates) {
+      localStorage.setItem('budget_shopping_templates', JSON.stringify(data.shoppingTemplates));
     }
     if (data.products) {
       localStorage.setItem('budget_products', JSON.stringify(mergeById(localProducts, data.products)));
@@ -227,6 +231,7 @@ export const exportData = () => ({
   subscriptions: getSubscriptions(),
   stores: getStores(),
   shopping: getShoppingItems(),
+  shoppingTemplates: getShoppingTemplates(),
   products: getProducts(),
   reminders: getReminders(),
   categoryRules: JSON.parse(localStorage.getItem(CATEGORY_RULES_KEY) || '[]'),
@@ -250,10 +255,11 @@ export const exportStructureData = () => ({
   subscriptions: getSubscriptions(),
   stores: getStores(),
   shopping: getShoppingItems(),
+  shoppingTemplates: getShoppingTemplates(),
   products: getProducts(),
   reminders: getReminders(),
   categoryRules: JSON.parse(localStorage.getItem(CATEGORY_RULES_KEY) || '[]'),
-  deletedIds: getDeletedIdsByType(['account', 'category', 'subscription', 'store', 'shopping', 'product', 'reminder']),
+  deletedIds: getDeletedIdsByType(['account', 'category', 'subscription', 'store', 'shopping', 'shoppingTemplate', 'product', 'reminder']),
   exportedAt: exportedAt()
 });
 
@@ -266,12 +272,13 @@ export const importData = (data) => {
   if (data.subscriptions) localStorage.setItem('budget_subscriptions', JSON.stringify(data.subscriptions));
   if (data.stores) localStorage.setItem('budget_stores', JSON.stringify(data.stores));
   if (data.shopping) localStorage.setItem('budget_shopping', JSON.stringify(data.shopping));
+  if (data.shoppingTemplates) localStorage.setItem('budget_shopping_templates', JSON.stringify(data.shoppingTemplates));
   if (data.products) localStorage.setItem('budget_products', JSON.stringify(data.products));
   if (data.reminders) localStorage.setItem('budget_reminders', JSON.stringify(data.reminders));
   if (data.categoryRules) localStorage.setItem(CATEGORY_RULES_KEY, JSON.stringify(data.categoryRules));
   if (data.deletedIds) {
     const numericTypes = ['transaction', 'budget', 'goal'];
-    const structureTypes = ['account', 'category', 'subscription', 'store', 'shopping', 'product', 'reminder'];
+    const structureTypes = ['account', 'category', 'subscription', 'store', 'shopping', 'shoppingTemplate', 'product', 'reminder'];
     const affectedTypes = data.backupType === 'numeric'
       ? numericTypes
       : data.backupType === 'structure'
@@ -435,6 +442,8 @@ export const deleteStore = (id: string) => {
 
 const STORAGE_KEYS_SHOPPING = 'budget_shopping';
 export const getShoppingItems = () => JSON.parse(localStorage.getItem(STORAGE_KEYS_SHOPPING) || '[]');
+const STORAGE_KEYS_SHOPPING_TEMPLATES = 'budget_shopping_templates';
+export const getShoppingTemplates = () => JSON.parse(localStorage.getItem(STORAGE_KEYS_SHOPPING_TEMPLATES) || '[]');
 
 export const saveShoppingItem = (item: any) => {
   const items = getShoppingItems();
@@ -455,6 +464,48 @@ export const deleteShoppingItem = (id: string) => {
   const deleted = getDeletedIds();
   deleted.push({ type: 'shopping', id });
   localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
+  syncToServer();
+};
+
+export const saveShoppingTemplate = (template: any) => {
+  const templates = getShoppingTemplates();
+  const now = new Date().toISOString();
+  template.id = template.id || 'template-' + Date.now();
+  template.createdAt = template.createdAt || now;
+  template.updatedAt = now;
+  const idx = templates.findIndex((item: any) => item.id === template.id);
+  if (idx >= 0) templates[idx] = template;
+  else templates.push(template);
+  localStorage.setItem(STORAGE_KEYS_SHOPPING_TEMPLATES, JSON.stringify(templates));
+  syncToServer();
+};
+
+export const deleteShoppingTemplate = (id: string) => {
+  const templates = getShoppingTemplates().filter((template: any) => template.id !== id);
+  localStorage.setItem(STORAGE_KEYS_SHOPPING_TEMPLATES, JSON.stringify(templates));
+  const deleted = getDeletedIds();
+  deleted.push({ type: 'shoppingTemplate', id });
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(deleted));
+  syncToServer();
+};
+
+export const addShoppingTemplateToList = (template: any) => {
+  const now = new Date().toISOString();
+  const items = getShoppingItems();
+  (template.items || []).forEach((item: any) => {
+    items.push({
+      id: 'shop-' + Date.now() + '-' + Math.random().toString(16).slice(2),
+      name: item.name,
+      storeId: item.storeId || '',
+      plannedPrice: item.plannedPrice || 0,
+      productId: item.productId || '',
+      checked: false,
+      purchased: false,
+      createdAt: now,
+      updatedAt: now
+    });
+  });
+  localStorage.setItem(STORAGE_KEYS_SHOPPING, JSON.stringify(items));
   syncToServer();
 };
 

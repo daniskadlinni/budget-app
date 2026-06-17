@@ -27,6 +27,7 @@ export const syncToServer = async () => {
       subscriptions: JSON.parse(localStorage.getItem('budget_subscriptions') || '[]'),
       stores: JSON.parse(localStorage.getItem('budget_stores') || '[]'),
       shopping: JSON.parse(localStorage.getItem('budget_shopping') || '[]'),
+      shoppingTemplates: JSON.parse(localStorage.getItem('budget_shopping_templates') || '[]'),
       products: JSON.parse(localStorage.getItem('budget_products') || '[]'),
       reminders: JSON.parse(localStorage.getItem('budget_reminders') || '[]'),
       deletedIds: getDeletedIds()
@@ -46,6 +47,7 @@ export const syncToServer = async () => {
       if (result.subscriptions !== undefined) localStorage.setItem('budget_subscriptions', JSON.stringify(result.subscriptions));
       if (result.stores !== undefined) localStorage.setItem('budget_stores', JSON.stringify(result.stores));
       if (result.shopping !== undefined) localStorage.setItem('budget_shopping', JSON.stringify(result.shopping));
+      if (result.shoppingTemplates !== undefined) localStorage.setItem('budget_shopping_templates', JSON.stringify(result.shoppingTemplates));
       if (result.products !== undefined) localStorage.setItem('budget_products', JSON.stringify(result.products));
       if (result.reminders !== undefined) localStorage.setItem('budget_reminders', JSON.stringify(result.reminders));
       if (result.deletedIds !== undefined) localStorage.setItem(DELETED_KEY, JSON.stringify(result.deletedIds));
@@ -68,6 +70,7 @@ export const syncFromServer = async () => {
     const localSubscriptions = JSON.parse(localStorage.getItem('budget_subscriptions') || '[]');
     const localStores = JSON.parse(localStorage.getItem('budget_stores') || '[]');
     const localShopping = JSON.parse(localStorage.getItem('budget_shopping') || '[]');
+    const localShoppingTemplates = JSON.parse(localStorage.getItem('budget_shopping_templates') || '[]');
     const localProducts = JSON.parse(localStorage.getItem('budget_products') || '[]');
     const localReminders = JSON.parse(localStorage.getItem('budget_reminders') || '[]');
 
@@ -135,6 +138,10 @@ export const syncFromServer = async () => {
       const merged = mergeArrays(localShopping, data.shopping, 'id', 'shopping');
       localStorage.setItem('budget_shopping', JSON.stringify(merged));
     }
+    if (data.shoppingTemplates !== undefined) {
+      const merged = mergeArrays(localShoppingTemplates, data.shoppingTemplates, 'id', 'shoppingTemplate');
+      localStorage.setItem('budget_shopping_templates', JSON.stringify(merged));
+    }
     if (data.products !== undefined) {
       const merged = mergeArrays(localProducts, data.products, 'id', 'product');
       localStorage.setItem('budget_products', JSON.stringify(merged));
@@ -188,6 +195,7 @@ export const clearTransactionsOnServer = async () => {
       subscriptions: JSON.parse(localStorage.getItem('budget_subscriptions') || '[]'),
       stores: JSON.parse(localStorage.getItem('budget_stores') || '[]'),
       shopping: JSON.parse(localStorage.getItem('budget_shopping') || '[]'),
+      shoppingTemplates: JSON.parse(localStorage.getItem('budget_shopping_templates') || '[]'),
       products: JSON.parse(localStorage.getItem('budget_products') || '[]'),
       reminders: JSON.parse(localStorage.getItem('budget_reminders') || '[]'),
       deletedIds: uniqueDeletedIds

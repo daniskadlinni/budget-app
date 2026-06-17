@@ -50,6 +50,38 @@
           <div class="text-caption text-grey">Динамика цены</div>
         </q-card-section>
         <q-card-section>
+          <div v-if="priceHistory.length" class="row q-col-gutter-sm q-mb-md">
+            <div class="col-6 col-sm-3">
+              <q-card flat bordered><q-card-section class="q-pa-sm">
+                <div class="text-caption text-grey">Минимум</div>
+                <div>{{ formatNumber(priceStats.min) }} ₽</div>
+              </q-card-section></q-card>
+            </div>
+            <div class="col-6 col-sm-3">
+              <q-card flat bordered><q-card-section class="q-pa-sm">
+                <div class="text-caption text-grey">Средняя</div>
+                <div>{{ formatNumber(priceStats.avg) }} ₽</div>
+              </q-card-section></q-card>
+            </div>
+            <div class="col-6 col-sm-3">
+              <q-card flat bordered><q-card-section class="q-pa-sm">
+                <div class="text-caption text-grey">Максимум</div>
+                <div>{{ formatNumber(priceStats.max) }} ₽</div>
+              </q-card-section></q-card>
+            </div>
+            <div class="col-6 col-sm-3">
+              <q-card flat bordered><q-card-section class="q-pa-sm">
+                <div class="text-caption text-grey">Изменение</div>
+                <div :class="priceStats.change >= 0 ? 'text-negative' : 'text-positive'">{{ priceStats.changeText }}</div>
+              </q-card-section></q-card>
+            </div>
+          </div>
+          <q-banner v-if="priceStats.bestStore" rounded class="bg-blue-1 text-primary q-mb-md">
+            Обычно дешевле: {{ priceStats.bestStore }} · {{ formatNumber(priceStats.bestStoreAvg) }} ₽
+          </q-banner>
+          <q-banner v-if="repeatHint" rounded class="bg-green-1 text-positive q-mb-md">
+            {{ repeatHint }}
+          </q-banner>
           <div v-if="priceHistory.length" style="height: 260px">
             <Line :data="priceChartData" :options="priceChartOptions" />
           </div>
@@ -130,6 +162,56 @@ const priceChartOptions = {
   maintainAspectRatio: false,
   plugins: { legend: { display: false } }
 };
+
+const priceStats = computed(() => {
+  const points = priceHistory.value;
+  if (!points.length) return { min: 0, avg: 0, max: 0, change: 0, changeText: '0%', bestStore: '', bestStoreAvg: 0 };
+  const prices = points.map((point: any) => parseFloat(point.price) || 0);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const avg = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+  const latest = points[0]?.price || 0;
+  const previous = points[1]?.price || latest;
+  const change = previous ? ((latest - previous) / previous) * 100 : 0;
+
+  const storeBuckets = new Map<string, number[]>();
+  points.forEach((point: any) => {
+    if (!point.storeId) return;
+    const bucket = storeBuckets.get(point.storeId) || [];
+    bucket.push(parseFloat(point.price) || 0);
+    storeBuckets.set(point.storeId, bucket);
+  });
+  const [bestStoreId, bestStorePrices] = [...storeBuckets.entries()]
+    .map(([storeId, storePrices]) => [storeId, storePrices, storePrices.reduce((sum, price) => sum + price, 0) / storePrices.length] as const)
+    .sort((a, b) => a[2] - b[2])[0] || ['', [], 0];
+
+  return {
+    min,
+    avg,
+    max,
+    change,
+    changeText: `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`,
+    bestStore: getStoreName(bestStoreId),
+    bestStoreAvg: bestStorePrices.length ? bestStorePrices.reduce((sum, price) => sum + price, 0) / bestStorePrices.length : 0
+  };
+});
+
+const repeatHint = computed(() => {
+  const points = [...priceHistory.value].reverse();
+  if (points.length < 3) return '';
+  const intervals: number[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const previous = new Date(points[i - 1].date).getTime();
+    const current = new Date(points[i].date).getTime();
+    const days = Math.round((current - previous) / (24 * 60 * 60 * 1000));
+    if (days > 0) intervals.push(days);
+  }
+  if (!intervals.length) return '';
+  const avgDays = Math.round(intervals.reduce((sum, days) => sum + days, 0) / intervals.length);
+  const lastDate = new Date(points[points.length - 1].date).getTime();
+  const daysSince = Math.round((Date.now() - lastDate) / (24 * 60 * 60 * 1000));
+  return `Обычно покупается раз в ${avgDays} дн. · прошло ${daysSince} дн.`;
+});
 
 const openAddDialog = () => {
   editing.value = false;

@@ -3,6 +3,7 @@
     <div class="text-h5 q-mb-md">Список покупок</div>
 
     <q-btn color="primary" icon="add" label="Добавить" class="q-mb-md" @click="openAddDialog" />
+    <q-btn color="secondary" outline icon="playlist_add_check" label="Шаблоны" class="q-mb-md q-ml-sm" @click="openTemplatesDialog" />
 
     <q-btn-toggle v-model="statusFilter" toggle-color="primary" :options="[
       { label: 'К покупке', value: 'todo' },
@@ -118,6 +119,36 @@
       </q-card>
     </q-dialog>
 
+    <q-dialog v-model="showTemplatesDialog">
+      <q-card style="min-width: min(92vw, 520px)">
+        <q-card-section>
+          <div class="text-h6">Шаблоны покупок</div>
+        </q-card-section>
+        <q-card-section>
+          <q-input v-model="templateName" label="Название шаблона" filled />
+          <q-btn color="primary" icon="save" label="Сохранить текущий список" class="q-mt-sm" @click="saveCurrentTemplate" />
+        </q-card-section>
+        <q-list separator>
+          <q-item v-for="template in templates" :key="template.id">
+            <q-item-section>
+              <q-item-label>{{ template.name }}</q-item-label>
+              <q-item-label caption>{{ template.items?.length || 0 }} товаров</q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-btn flat round dense icon="playlist_add" color="primary" @click="applyTemplate(template)" />
+              <q-btn flat round dense icon="delete" color="negative" @click="removeTemplate(template.id)" />
+            </q-item-section>
+          </q-item>
+          <q-item v-if="templates.length === 0">
+            <q-item-section class="text-grey">Шаблонов пока нет</q-item-section>
+          </q-item>
+        </q-list>
+        <q-card-actions align="right">
+          <q-btn flat label="Закрыть" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
     <q-dialog v-model="showPurchaseDialog">
       <q-card style="min-width: 350px">
         <q-card-section><div class="text-h6">Отметить как купленное</div></q-card-section>
@@ -141,21 +172,39 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
-import { getStores, getShoppingItems, saveShoppingItem, deleteShoppingItem, setShoppingItemChecked, markShoppingItemPurchased, getAccounts, formatNumber, getProducts, saveProduct as sProduct } from 'src/utils/storage';
+import {
+  getStores,
+  getShoppingItems,
+  saveShoppingItem,
+  deleteShoppingItem,
+  setShoppingItemChecked,
+  markShoppingItemPurchased,
+  getAccounts,
+  formatNumber,
+  getProducts,
+  saveProduct as sProduct,
+  getShoppingTemplates,
+  saveShoppingTemplate,
+  deleteShoppingTemplate,
+  addShoppingTemplateToList
+} from 'src/utils/storage';
 
 const $q = useQuasar();
 
 const stores = ref<any[]>([]);
 const products = ref<any[]>([]);
 const items = ref<any[]>([]);
+const templates = ref<any[]>([]);
 const filterStore = ref(null);
 const statusFilter = ref<'todo' | 'active' | 'purchased' | 'all'>('todo');
 const showCheckedItems = ref(true);
 
 const showItemDialog = ref(false);
 const showPurchaseDialog = ref(false);
+const showTemplatesDialog = ref(false);
 const editingItem = ref(false);
 const purchasingItem = ref(null);
+const templateName = ref('');
 
 const itemForm = ref({ id: '', name: '', storeId: '', plannedPrice: '', productId: '' });
 const purchaseForm = ref({ actualPrice: '', accountId: 'general-cash' });
@@ -276,14 +325,49 @@ const confirmPurchase = () => {
   showPurchaseDialog.value = false;
 };
 
+const openTemplatesDialog = () => {
+  templates.value = getShoppingTemplates();
+  templateName.value = '';
+  showTemplatesDialog.value = true;
+};
+
+const saveCurrentTemplate = () => {
+  const sourceItems = items.value.filter(item => !item.purchased);
+  if (!templateName.value.trim() || sourceItems.length === 0) return;
+  saveShoppingTemplate({
+    name: templateName.value.trim(),
+    items: sourceItems.map(item => ({
+      name: item.name,
+      storeId: item.storeId || '',
+      plannedPrice: item.plannedPrice || 0,
+      productId: item.productId || ''
+    }))
+  });
+  templates.value = getShoppingTemplates();
+  templateName.value = '';
+};
+
+const applyTemplate = (template: any) => {
+  addShoppingTemplateToList(template);
+  items.value = getShoppingItems();
+  $q.notify({ message: 'Шаблон добавлен в список', color: 'positive' });
+};
+
+const removeTemplate = (id: string) => {
+  deleteShoppingTemplate(id);
+  templates.value = getShoppingTemplates();
+};
+
 onMounted(() => {
   stores.value = getStores();
   products.value = getProducts();
   items.value = getShoppingItems();
+  templates.value = getShoppingTemplates();
   window.addEventListener('dataUpdated', () => {
     stores.value = getStores();
     products.value = getProducts();
     items.value = getShoppingItems();
+    templates.value = getShoppingTemplates();
   });
   window.addEventListener('open-add-shopping', () => openAddDialog());
 });

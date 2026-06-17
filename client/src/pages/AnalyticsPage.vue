@@ -132,12 +132,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useQuasar } from 'quasar';
 import { Doughnut, Bar } from 'vue-chartjs';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { getTransactions, getCategories, updateTransaction, formatNumber } from 'src/utils/storage';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
+const $q = useQuasar();
 const transactions = ref<any[]>([]);
 const categories = ref<any[]>([]);
 const period = ref<'month' | 'quarter' | 'year'>('quarter');
@@ -145,6 +147,8 @@ const selectedMonth = ref(new Date().toISOString().slice(0, 7));
 const selectedCategoryId = ref('');
 const showCategoryDialog = ref(false);
 const categoryForm = ref({ id: '', categoryId: '' });
+const editingCategoryTransaction = ref<any>(null);
+const CATEGORY_RULES_KEY = 'budget_category_rules';
 
 const chartOptions = {
   responsive: true,
@@ -312,6 +316,7 @@ const getAccountName = (id: string) => {
 const formatDate = (d: string) => new Date(d).toLocaleDateString('ru-RU');
 
 const openCategoryDialog = (transaction: any) => {
+  editingCategoryTransaction.value = transaction;
   categoryForm.value = { id: transaction.id, categoryId: transaction.categoryId || '' };
   showCategoryDialog.value = true;
 };
@@ -321,6 +326,32 @@ const saveCategoryEdit = () => {
   updateTransaction(categoryForm.value.id, { categoryId: categoryForm.value.categoryId });
   transactions.value = getTransactions();
   showCategoryDialog.value = false;
+  offerCategoryRule(editingCategoryTransaction.value, categoryForm.value.categoryId);
+};
+
+const getRuleKeyword = (transaction: any) => {
+  const note = (transaction?.note || '').replace(/\[[^\]]+\]/g, '').replace(/\s+/g, ' ').trim();
+  return note.slice(0, 48);
+};
+
+const getCategoryName = (id: string) => categories.value.find(category => category.id === id)?.name || 'категорию';
+
+const offerCategoryRule = (transaction: any, categoryId: string) => {
+  const keyword = getRuleKeyword(transaction);
+  if (!keyword || !categoryId) return;
+
+  $q.dialog({
+    title: 'Запомнить правило',
+    message: `В будущем похожие операции сразу относить в "${getCategoryName(categoryId)}"?`,
+    cancel: true
+  }).onOk(() => {
+    const rules = JSON.parse(localStorage.getItem(CATEGORY_RULES_KEY) || '[]');
+    if (!rules.find((rule: any) => rule.keyword === keyword && rule.categoryId === categoryId)) {
+      rules.push({ keyword, categoryId });
+      localStorage.setItem(CATEGORY_RULES_KEY, JSON.stringify(rules));
+      $q.notify({ message: 'Правило сохранено', color: 'positive' });
+    }
+  });
 };
 
 onMounted(() => {

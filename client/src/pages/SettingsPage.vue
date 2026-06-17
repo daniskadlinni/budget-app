@@ -65,6 +65,32 @@
             <div class="text-caption text-grey q-mb-sm">
               Найдено: {{ sberPreview.length }} · будет добавлено: {{ sberPreviewToAdd.length }} · дублей: {{ sberPreview.length - sberPreviewToAdd.length }}
             </div>
+            <div class="row q-col-gutter-sm q-mb-sm">
+              <div class="col-12 col-sm-4">
+                <q-card flat bordered>
+                  <q-card-section class="q-pa-sm">
+                    <div class="text-caption text-grey">Доходы к добавлению</div>
+                    <div class="text-positive">+{{ formatPreviewAmount(sberPreviewSummary.income) }}</div>
+                  </q-card-section>
+                </q-card>
+              </div>
+              <div class="col-12 col-sm-4">
+                <q-card flat bordered>
+                  <q-card-section class="q-pa-sm">
+                    <div class="text-caption text-grey">Расходы к добавлению</div>
+                    <div class="text-negative">-{{ formatPreviewAmount(sberPreviewSummary.expense) }}</div>
+                  </q-card-section>
+                </q-card>
+              </div>
+              <div class="col-12 col-sm-4">
+                <q-card flat bordered>
+                  <q-card-section class="q-pa-sm">
+                    <div class="text-caption text-grey">Изменение баланса</div>
+                    <div :class="sberPreviewSummary.balance >= 0 ? 'text-positive' : 'text-negative'">{{ formatPreviewAmount(sberPreviewSummary.balance) }}</div>
+                  </q-card-section>
+                </q-card>
+              </div>
+            </div>
             <q-list bordered separator style="max-height: 360px; overflow: auto">
               <q-item v-for="item in sberPreview.slice(0, 80)" :key="item.key">
                 <q-item-section>
@@ -87,6 +113,17 @@
             <p class="text-caption text-grey">Запасной вариант: скопируйте текст из PDF выписки Сбербанка и вставьте сюда</p>
             <q-input v-model="sberText" type="textarea" label="Вставьте текст из PDF" filled class="q-mt-sm" style="min-height: 150px" />
             <q-btn color="secondary" label="Импортировать" class="q-mt-md" @click="importSberText" :loading="sberLoading" />
+          </q-card-section>
+        </q-card>
+
+        <q-card class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">Управление PDF-импортом</div>
+            <p class="text-caption text-grey">Можно удалить последний импорт Сбера или все операции, которые пришли из PDF.</p>
+            <div class="backup-actions q-mt-md">
+              <q-btn color="warning" outline icon="undo" label="Удалить последний PDF-импорт" @click="deleteLastPdfImport" />
+              <q-btn color="negative" outline icon="delete_sweep" label="Удалить все PDF-операции" @click="deleteAllPdfImports" />
+            </div>
           </q-card-section>
         </q-card>
       </q-tab-panel>
@@ -143,6 +180,7 @@ const sberText = ref('');
 const sberAccount = ref('general-card');
 const sberLoading = ref(false);
 const sberPreview = ref<SberTransaction[]>([]);
+const currentSberImportBatchId = ref('');
 
 const accountOptions = [
   { label: 'Общий — Наличные', value: 'general-cash' },
@@ -169,6 +207,16 @@ type SberTransaction = {
 const sberPreviewToAdd = computed(() => {
   const existing = getTransactions();
   return sberPreview.value.filter(item => !isDuplicateTransaction(item, existing));
+});
+
+const sberPreviewSummary = computed(() => {
+  const income = sberPreviewToAdd.value
+    .filter(item => item.type === 'income')
+    .reduce((sum, item) => sum + item.amount, 0);
+  const expense = sberPreviewToAdd.value
+    .filter(item => item.type === 'expense')
+    .reduce((sum, item) => sum + item.amount, 0);
+  return { income, expense, balance: income - expense };
 });
 
 onMounted(() => {
@@ -483,6 +531,7 @@ const toAppTransaction = (item: SberTransaction) => {
   return {
     id: uuidv4(),
     source: 'sber-pdf',
+    importBatchId: currentSberImportBatchId.value,
     importKey: item.key,
     accountId: sberAccount.value,
     type: item.type,
@@ -500,6 +549,7 @@ const importSberTransactions = (items: SberTransaction[]) => {
   ensureSberCategories();
 
   const existing = getTransactions();
+  currentSberImportBatchId.value = `sber-${Date.now()}`;
   const toAdd = items.filter(item => !isDuplicateTransaction(item, existing));
   const all = [...existing, ...toAdd.map(toAppTransaction)];
   localStorage.setItem('budget_transactions', JSON.stringify(all));
@@ -597,6 +647,59 @@ const importSberText = async () => {
   }
 
   sberLoading.value = false;
+};
+
+const removePdfTransactions = (predicate: (transaction: any) => boolean) => {
+  const transactions = getTransactions();
+  const toDelete = transactions.filter(predicate);
+  if (!toDelete.length) return 0;
+
+  const deleted = JSON.parse(localStorage.getItem('budget_deleted_ids') || '[]');
+  toDelete.forEach((transaction: any) => {
+    if (!deleted.find((item: any) => item.type === 'transaction' && item.id === transaction.id)) {
+      deleted.push({ type: 'transaction', id: transaction.id });
+    }
+  });
+  localStorage.setItem('budget_deleted_ids', JSON.stringify(deleted));
+  localStorage.setItem('budget_transactions', JSON.stringify(transactions.filter(transaction => !predicate(transaction))));
+  syncToServer();
+  return toDelete.length;
+};
+
+const deleteLastPdfImport = () => {
+  const pdfTransactions = getTransactions().filter((transaction: any) => transaction.source === 'sber-pdf');
+  const latest = [...pdfTransactions]
+    .sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0];
+
+  if (!latest) {
+    $q.notify({ message: 'PDF-импортов не найдено', color: 'warning' });
+    return;
+  }
+
+  $q.dialog({
+    title: 'Удалить последний PDF-импорт',
+    message: 'Операции из последнего импорта Сбера будут удалены.',
+    cancel: true
+  }).onOk(() => {
+    const removed = removePdfTransactions((transaction: any) => latest.importBatchId
+      ? transaction.importBatchId === latest.importBatchId
+      : transaction.source === 'sber-pdf' && transaction.createdAt === latest.createdAt);
+    $q.notify({ message: `Удалено ${removed} операций`, color: 'positive' });
+    setTimeout(() => location.reload(), 700);
+  });
+};
+
+const deleteAllPdfImports = () => {
+  $q.dialog({
+    title: 'Удалить все PDF-операции',
+    message: 'Будут удалены все операции, импортированные из PDF Сбера.',
+    cancel: true,
+    persistent: true
+  }).onOk(() => {
+    const removed = removePdfTransactions((transaction: any) => transaction.source === 'sber-pdf');
+    $q.notify({ message: `Удалено ${removed} операций`, color: 'positive' });
+    setTimeout(() => location.reload(), 700);
+  });
 };
 
 const toggleTheme = () => {

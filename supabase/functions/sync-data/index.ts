@@ -15,6 +15,7 @@ const dataTypes: Record<string, string> = {
   subscriptions: "subscription",
   stores: "store",
   shopping: "shopping",
+  shoppingTemplates: "shoppingTemplate",
   products: "product",
   reminders: "reminder",
 };
@@ -76,6 +77,7 @@ serve(async (req) => {
         subscriptions,
         stores,
         shopping,
+        shoppingTemplates,
         products,
         reminders,
         deletedIds,
@@ -96,6 +98,7 @@ serve(async (req) => {
         subscriptions,
         stores,
         shopping,
+        shoppingTemplates,
         products,
         reminders,
       };
