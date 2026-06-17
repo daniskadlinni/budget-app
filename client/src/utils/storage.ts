@@ -458,20 +458,45 @@ export const deleteShoppingItem = (id: string) => {
   syncToServer();
 };
 
+export const setShoppingItemChecked = (id: string, checked: boolean) => {
+  const items = getShoppingItems();
+  const idx = items.findIndex((i: any) => i.id === id);
+  if (idx < 0) return;
+
+  items[idx].checked = checked;
+  items[idx].checkedAt = checked ? new Date().toISOString() : null;
+  items[idx].updatedAt = new Date().toISOString();
+  localStorage.setItem(STORAGE_KEYS_SHOPPING, JSON.stringify(items));
+  syncToServer();
+};
+
 export const markShoppingItemPurchased = (id: string, actualPrice: number, accountId: string) => {
   const items = getShoppingItems();
   const idx = items.findIndex((i: any) => i.id === id);
   if (idx >= 0) {
+    const price = parseFloat((actualPrice || items[idx].plannedPrice || 0).toString()) || 0;
+    const purchasedAt = new Date().toISOString();
     items[idx].purchased = true;
-    items[idx].actualPrice = actualPrice;
-    items[idx].purchasedAt = new Date().toISOString();
+    items[idx].checked = false;
+    items[idx].actualPrice = price;
+    items[idx].purchasedAt = purchasedAt;
+    items[idx].updatedAt = purchasedAt;
     localStorage.setItem(STORAGE_KEYS_SHOPPING, JSON.stringify(items));
+
+    if (items[idx].productId) {
+      addProductPricePoint(items[idx].productId, {
+        date: purchasedAt.split('T')[0],
+        price,
+        storeId: items[idx].storeId || '',
+        shoppingItemId: items[idx].id
+      });
+    }
 
     const transaction = {
       id: 't-' + Date.now(),
       accountId,
       type: 'expense',
-      amount: actualPrice,
+      amount: price,
       date: new Date().toISOString().split('T')[0],
       note: items[idx].name,
       categoryId: 'cat-shopping',
@@ -495,6 +520,41 @@ export const saveProduct = (product: any) => {
   const idx = products.findIndex((p: any) => p.id === product.id);
   if (idx >= 0) products[idx] = product;
   else products.push(product);
+  localStorage.setItem(STORAGE_KEYS_PRODUCTS, JSON.stringify(products));
+  syncToServer();
+};
+
+export const addProductPricePoint = (productId: string, point: any) => {
+  const products = getProducts();
+  const idx = products.findIndex((p: any) => p.id === productId);
+  if (idx < 0) return;
+
+  const history = Array.isArray(products[idx].priceHistory) ? products[idx].priceHistory : [];
+  const date = point.date || new Date().toISOString().split('T')[0];
+  const price = parseFloat((point.price || 0).toString()) || 0;
+  const key = point.shoppingItemId
+    ? `shopping-${point.shoppingItemId}`
+    : `${date}-${price}-${point.storeId || ''}`;
+
+  const existingIdx = history.findIndex((item: any) => item.key === key);
+  const nextPoint = {
+    key,
+    date,
+    price,
+    storeId: point.storeId || '',
+    shoppingItemId: point.shoppingItemId || '',
+    createdAt: new Date().toISOString()
+  };
+
+  if (existingIdx >= 0) history[existingIdx] = { ...history[existingIdx], ...nextPoint };
+  else history.push(nextPoint);
+
+  products[idx] = {
+    ...products[idx],
+    lastPrice: price,
+    priceHistory: history.sort((a: any, b: any) => a.date.localeCompare(b.date)),
+    updatedAt: new Date().toISOString()
+  };
   localStorage.setItem(STORAGE_KEYS_PRODUCTS, JSON.stringify(products));
   syncToServer();
 };
