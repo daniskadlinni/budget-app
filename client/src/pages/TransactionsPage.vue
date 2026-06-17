@@ -75,11 +75,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { v4 as uuidv4 } from 'uuid';
 import { getTransactions, saveTransaction, deleteTransaction, getCategories, getAccountBalance, formatNumber } from 'src/utils/storage';
 import { useQuasar } from 'quasar';
 
 const $q = useQuasar();
+const route = useRoute();
+const router = useRouter();
 
 const showDialog = ref(false);
 const transactions = ref<any[]>([]);
@@ -199,10 +202,21 @@ const remove = (id: string) => {
   transactions.value = getTransactions();
 };
 
-const openDialog = (event?: Event) => {
-  const detail = (event as CustomEvent<{ type?: 'expense' | 'income' | 'transfer' }>)?.detail;
-  form.value = { type: detail?.type || 'expense', accountId: 'general-cash', fromId: 'general-cash', toId: 'general-card', categoryId: '', amount: '', date: new Date().toISOString().split('T')[0], note: '' };
+const openDialog = (event?: Event | 'expense' | 'income' | 'transfer') => {
+  const eventType = typeof event === 'string' ? event : undefined;
+  const detail = typeof event === 'string' ? undefined : (event as CustomEvent<{ type?: 'expense' | 'income' | 'transfer' }>)?.detail;
+  form.value = { type: eventType || detail?.type || 'expense', accountId: 'general-cash', fromId: 'general-cash', toId: 'general-card', categoryId: '', amount: '', date: new Date().toISOString().split('T')[0], note: '' };
   showDialog.value = true;
+};
+
+const openFromRoute = () => {
+  const add = route.query.add;
+  if (add === 'expense' || add === 'income' || add === 'transfer') {
+    openDialog(add);
+    const query = { ...route.query };
+    delete query.add;
+    router.replace({ path: route.path, query });
+  }
 };
 
 const handleKeydown = (e: KeyboardEvent) => {
@@ -220,15 +234,16 @@ const handleDataUpdated = () => {
 onMounted(() => {
   categories.value = getCategories();
   transactions.value = getTransactions();
+  openFromRoute();
 
   document.addEventListener('keydown', handleKeydown);
-  document.addEventListener('open-add-transaction', openDialog);
+  window.addEventListener('open-add-transaction', openDialog);
   window.addEventListener('dataUpdated', handleDataUpdated);
 });
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
-  document.removeEventListener('open-add-transaction', openDialog);
+  window.removeEventListener('open-add-transaction', openDialog);
   window.removeEventListener('dataUpdated', handleDataUpdated);
 });
 </script>

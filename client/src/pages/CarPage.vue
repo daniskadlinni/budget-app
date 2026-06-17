@@ -99,8 +99,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { getTransactions, deleteTransaction as delTrans, saveTransaction, formatNumber } from 'src/utils/storage';
 
+const route = useRoute();
+const router = useRouter();
 const showAddDialog = ref(false);
 const entryType = ref<'fuel' | 'service'>('fuel');
 const newAmount = ref(0);
@@ -272,10 +275,17 @@ const deleteTransaction = (id: string) => {
 
 const handleAddFuel = () => {
   refreshKey.value++;
+  entryType.value = 'fuel';
   showAddDialog.value = true;
 };
 
 onMounted(() => {
+  if (route.query.add === 'fuel') {
+    handleAddFuel();
+    const query = { ...route.query };
+    delete query.add;
+    router.replace({ path: route.path, query });
+  }
   window.addEventListener('open-add-fuel', handleAddFuel);
 });
 

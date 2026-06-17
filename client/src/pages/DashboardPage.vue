@@ -94,8 +94,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { getTransactions, getAccountBalance, formatNumber, getBudgets, getMonthlySpent, getCategories } from 'src/utils/storage';
 
+const router = useRouter();
 const transactions = ref<any[]>([]);
 const budgets = ref<any[]>([]);
 const categories = ref<any[]>([]);
@@ -173,11 +175,11 @@ const getLabel = (t: any) => {
 const formatDate = (d: string) => new Date(d).toLocaleDateString('ru-RU');
 
 const openTransaction = (type: 'expense' | 'income' | 'transfer') => {
-  window.dispatchEvent(new CustomEvent('open-add-transaction', { detail: { type } }));
+  router.push({ path: '/transactions', query: { add: type } });
 };
 
 const openFuel = () => {
-  window.dispatchEvent(new CustomEvent('open-add-fuel'));
+  router.push({ path: '/car', query: { add: 'fuel' } });
 };
 
 onMounted(() => {
