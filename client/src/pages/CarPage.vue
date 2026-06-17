@@ -98,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getTransactions, deleteTransaction as delTrans, saveTransaction, formatNumber } from 'src/utils/storage';
 
@@ -279,7 +279,7 @@ const handleAddFuel = () => {
   showAddDialog.value = true;
 };
 
-onMounted(() => {
+const openFuelFromRoute = () => {
   if (route.query.add === 'fuel' || sessionStorage.getItem('pending-add-fuel')) {
     sessionStorage.removeItem('pending-add-fuel');
     nextTick(handleAddFuel);
@@ -287,10 +287,16 @@ onMounted(() => {
     delete query.add;
     router.replace({ path: route.path, query });
   }
+};
+
+onMounted(() => {
+  openFuelFromRoute();
   window.addEventListener('open-add-fuel', handleAddFuel);
 });
 
 onUnmounted(() => {
   window.removeEventListener('open-add-fuel', handleAddFuel);
 });
+
+watch(() => route.query.add, () => openFuelFromRoute());
 </script>

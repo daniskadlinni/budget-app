@@ -174,14 +174,21 @@ const getLabel = (t: any) => {
 
 const formatDate = (d: string) => new Date(d).toLocaleDateString('ru-RU');
 
+const dispatchAfterNavigation = (eventName: string, detail?: Record<string, string>) => {
+  setTimeout(() => window.dispatchEvent(new CustomEvent(eventName, { detail })), 150);
+  setTimeout(() => window.dispatchEvent(new CustomEvent(eventName, { detail })), 500);
+};
+
 const openTransaction = (type: 'expense' | 'income' | 'transfer') => {
   sessionStorage.setItem('pending-add-transaction', type);
-  router.push({ path: '/transactions', query: { add: type } });
+  router.push({ path: '/transactions', query: { add: type } })
+    .then(() => dispatchAfterNavigation('open-add-transaction', { type }));
 };
 
 const openFuel = () => {
   sessionStorage.setItem('pending-add-fuel', '1');
-  router.push({ path: '/car', query: { add: 'fuel' } });
+  router.push({ path: '/car', query: { add: 'fuel' } })
+    .then(() => dispatchAfterNavigation('open-add-fuel'));
 };
 
 onMounted(() => {

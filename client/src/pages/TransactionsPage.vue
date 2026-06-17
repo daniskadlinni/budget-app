@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { v4 as uuidv4 } from 'uuid';
 import { getTransactions, saveTransaction, deleteTransaction, getCategories, getAccountBalance, formatNumber } from 'src/utils/storage';
@@ -248,4 +248,6 @@ onUnmounted(() => {
   window.removeEventListener('open-add-transaction', openDialog);
   window.removeEventListener('dataUpdated', handleDataUpdated);
 });
+
+watch(() => route.query.add, () => openFromRoute());
 </script>
