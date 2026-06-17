@@ -44,9 +44,43 @@
 
         <q-card class="q-mb-md">
           <q-card-section>
-            <div class="text-h6">Импорт из текста Сбербанка</div>
-            <p class="text-caption text-grey">Скопируйте текст из PDF выписки Сбербанка и вставьте сюда</p>
+            <div class="text-h6">Импорт PDF Сбербанка</div>
+            <p class="text-caption text-grey">Можно выбрать одну или несколько PDF-выписок. Внутренние переводы между своими счетами будут пропущены.</p>
             <q-select v-model="sberAccount" :options="accountOptions" label="Счёт" emit-value map-options filled class="q-mt-sm" />
+            <q-btn color="primary" label="Выбрать PDF" class="q-mt-md" @click="triggerSberPdfImport" :loading="sberLoading" />
+            <input ref="sberPdfInput" type="file" accept=".pdf,application/pdf" multiple style="display:none" @change="importSberPdf" />
+          </q-card-section>
+        </q-card>
+
+        <q-card v-if="sberPreview.length" class="q-mb-md">
+          <q-card-section>
+            <div class="row justify-between items-center q-mb-sm">
+              <div class="text-h6">Предпросмотр</div>
+              <q-btn color="positive" label="Импортировать" @click="confirmSberPreviewImport" />
+            </div>
+            <div class="text-caption text-grey q-mb-sm">
+              Найдено: {{ sberPreview.length }} · будет добавлено: {{ sberPreviewToAdd.length }} · дублей: {{ sberPreview.length - sberPreviewToAdd.length }}
+            </div>
+            <q-list bordered separator style="max-height: 360px; overflow: auto">
+              <q-item v-for="item in sberPreview.slice(0, 80)" :key="item.key">
+                <q-item-section>
+                  <q-item-label>{{ item.description }}</q-item-label>
+                  <q-item-label caption>{{ item.date }} · {{ getCategoryName(item.categoryId) }} · {{ item.sourceCategory }}</q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-item-label :class="item.type === 'income' ? 'text-positive' : 'text-negative'">
+                    {{ item.type === 'income' ? '+' : '-' }}{{ formatPreviewAmount(item.amount) }}
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-card-section>
+        </q-card>
+
+        <q-card class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">Импорт из текста Сбербанка</div>
+            <p class="text-caption text-grey">Запасной вариант: скопируйте текст из PDF выписки Сбербанка и вставьте сюда</p>
             <q-input v-model="sberText" type="textarea" label="Вставьте текст из PDF" filled class="q-mt-sm" style="min-height: 150px" />
             <q-btn color="secondary" label="Импортировать" class="q-mt-md" @click="importSberText" :loading="sberLoading" />
           </q-card-section>
@@ -81,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { exportData as exp, importData as imp, getCategories, getTransactions } from 'src/utils/storage';
 import { clearTransactionsOnServer, syncToServer } from 'src/utils/sync';
@@ -92,10 +126,12 @@ const settingsTab = ref('general');
 const darkMode = ref($q.dark.isActive);
 const fileInput = ref<HTMLInputElement | null>(null);
 const csvFileInput = ref<HTMLInputElement | null>(null);
+const sberPdfInput = ref<HTMLInputElement | null>(null);
 const csvAccount = ref('general-cash');
 const sberText = ref('');
 const sberAccount = ref('general-card');
 const sberLoading = ref(false);
+const sberPreview = ref<SberTransaction[]>([]);
 
 const accountOptions = [
   { label: 'Общий — Наличные', value: 'general-cash' },
@@ -107,6 +143,21 @@ const categoryOptions = ref<any[]>([]);
 const categoryRules = ref<{ keyword: string; categoryId: string }[]>([]);
 
 const STORAGE_KEY_CATEGORY_RULES = 'budget_category_rules';
+
+type SberTransaction = {
+  key: string;
+  date: string;
+  amount: number;
+  type: 'income' | 'expense';
+  description: string;
+  sourceCategory: string;
+  categoryId: string;
+};
+
+const sberPreviewToAdd = computed(() => {
+  const existing = getTransactions();
+  return sberPreview.value.filter(item => !isDuplicateTransaction(item, existing));
+});
 
 onMounted(() => {
   initCategories();
@@ -144,8 +195,122 @@ const findCategoryByKeyword = (description: string): string => {
   return '';
 };
 
-const parseSberText = (text: string): { date: string; amount: number; type: 'income' | 'expense'; description: string; category: string }[] => {
-  const transactions: { date: string; amount: number; type: 'income' | 'expense'; description: string; category: string }[] = [];
+const knownSberCategories = [
+  'Здоровье и красота',
+  'Одежда и аксессуары',
+  'Оплата по QR–коду СБП',
+  'Рестораны и кафе',
+  'Перевод с карты',
+  'Перевод на карту',
+  'Прочие операции',
+  'Прочие расходы',
+  'Внесение наличных',
+  'Заработная плата',
+  'Супермаркеты',
+  'Все для дома',
+  'Компенсации',
+  'Автомобиль',
+  'Перевод СБП',
+  'Транспорт'
+].sort((a, b) => b.length - a.length);
+
+const sberCategoryMap: Record<string, { id: string; type: 'income' | 'expense'; name: string; color: string }> = {
+  'Транспорт': { id: 'cat-transport', type: 'expense', name: 'Транспорт', color: '#2196F3' },
+  'Супермаркеты': { id: 'cat-food', type: 'expense', name: 'Продукты', color: '#FF5722' },
+  'Рестораны и кафе': { id: 'cat-restaurants', type: 'expense', name: 'Кафе и рестораны', color: '#FFC107' },
+  'Автомобиль': { id: 'fuel', type: 'expense', name: 'Бензин', color: '#FF5722' },
+  'Все для дома': { id: 'cat-home', type: 'expense', name: 'Дом', color: '#795548' },
+  'Здоровье и красота': { id: 'cat-health', type: 'expense', name: 'Здоровье', color: '#F44336' },
+  'Одежда и аксессуары': { id: 'cat-shopping', type: 'expense', name: 'Покупки', color: '#E91E63' },
+  'Прочие расходы': { id: 'cat-other-exp', type: 'expense', name: 'Прочее', color: '#9E9E9E' },
+  'Прочие операции': { id: 'cat-other-exp', type: 'expense', name: 'Прочее', color: '#9E9E9E' },
+  'Оплата по QR–коду СБП': { id: 'cat-other-exp', type: 'expense', name: 'Прочее', color: '#9E9E9E' },
+  'Внесение наличных': { id: 'cat-other-inc', type: 'income', name: 'Прочее', color: '#9E9E9E' },
+  'Заработная плата': { id: 'cat-salary', type: 'income', name: 'Зарплата', color: '#4CAF50' },
+  'Компенсации': { id: 'cat-other-inc', type: 'income', name: 'Прочее', color: '#9E9E9E' },
+  'Перевод с карты': { id: 'transfers', type: 'expense', name: 'Переводы', color: '#90A4AE' },
+  'Перевод на карту': { id: 'transfers', type: 'income', name: 'Переводы', color: '#90A4AE' },
+  'Перевод СБП': { id: 'transfers', type: 'expense', name: 'Переводы', color: '#90A4AE' }
+};
+
+const ensureSberCategories = () => {
+  const existingCategories = getCategories();
+  const existingCategoryIds = new Set(existingCategories.map((category: any) => category.id));
+
+  Object.values(sberCategoryMap).forEach(category => {
+    if (!existingCategoryIds.has(category.id)) {
+      existingCategories.push({
+        id: category.id,
+        name: category.name,
+        type: category.type,
+        color: category.color,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+  });
+
+  localStorage.setItem('budget_categories', JSON.stringify(existingCategories));
+};
+
+const normalizeSberAmount = (value: string) =>
+  parseFloat(value.replace(/\s/g, '').replace(/\u00a0/g, '').replace(',', '.'));
+
+const formatPreviewAmount = (amount: number) => amount.toLocaleString('ru-RU', { minimumFractionDigits: 2 });
+
+const getCategoryName = (id: string) => getCategories().find((category: any) => category.id === id)?.name || 'Прочее';
+
+const isOwnTransfer = (category: string, description: string) => {
+  if (!category.includes('Перевод')) return false;
+  return /(?:Перевод (?:для|от) Ч\. Елизавета Денисовна|KOPILKA KARTA-VKLAD|Копилка)/i.test(description);
+};
+
+const detectCategory = (sourceCategory: string, description: string) => {
+  const descUpper = description.toUpperCase();
+  const keywordCategory = findCategoryByKeyword(description);
+  if (keywordCategory) return keywordCategory;
+
+  if (['AZS', 'АЗС', 'ЛУКОЙЛ', 'РОСНЕФТЬ', 'ГАЗПРОМНЕФТЬ', 'ЗАПРАВКА'].some(keyword => descUpper.includes(keyword))) {
+    return 'fuel';
+  }
+  if (['AMPP', 'ПАРКОВК'].some(keyword => descUpper.includes(keyword))) {
+    return 'parking';
+  }
+  if (['PYATEROCHKA', 'ПЯТЕРОЧКА', 'LENTA', 'ЛЕНТА', 'MAGNIT', 'МАГНИТ', 'KUPER', 'СВЕТОФОР', 'SVETOFOR', 'MYASNOY'].some(keyword => descUpper.includes(keyword))) {
+    return 'cat-food';
+  }
+  if (['KAFE', 'CAFE', 'COFIX', 'STOLOVAYA', 'VERANDA', 'РЕСТОРАН'].some(keyword => descUpper.includes(keyword))) {
+    return 'cat-restaurants';
+  }
+  if (['OZON', 'YANDEX*4215*DOSTAVKA', 'YSPLIT', 'LEMANAPRO'].some(keyword => descUpper.includes(keyword))) {
+    return 'cat-shopping';
+  }
+
+  return sberCategoryMap[sourceCategory]?.id || 'cat-other-exp';
+};
+
+const normalizeSberTransaction = (raw: { date: string; amount: number; type: 'income' | 'expense'; description: string; category: string }): SberTransaction | null => {
+  if (isOwnTransfer(raw.category, raw.description)) return null;
+
+  let type = raw.type;
+  if (raw.category === 'Внесение наличных' || raw.category === 'Заработная плата' || raw.category === 'Компенсации') {
+    type = 'income';
+  }
+
+  const categoryId = detectCategory(raw.category, raw.description);
+  return {
+    key: `${raw.date}-${type}-${raw.amount}-${raw.description}`,
+    date: raw.date,
+    amount: raw.amount,
+    type,
+    description: raw.description,
+    sourceCategory: raw.category,
+    categoryId
+  };
+};
+
+const parseSberText = (text: string): SberTransaction[] => {
+  const transactions: SberTransaction[] = [];
 
   const lines = text.split('\n');
 
@@ -160,7 +325,10 @@ const parseSberText = (text: string): { date: string; amount: number; type: 'inc
     if (dateMatch) {
       if (currentTransaction) {
         const parsed = parseTransactionLine(currentTransaction);
-        if (parsed) transactions.push(parsed);
+        if (parsed) {
+          const normalized = normalizeSberTransaction(parsed);
+          if (normalized) transactions.push(normalized);
+        }
       }
       currentTransaction = line;
     } else {
@@ -170,7 +338,10 @@ const parseSberText = (text: string): { date: string; amount: number; type: 'inc
 
   if (currentTransaction) {
     const parsed = parseTransactionLine(currentTransaction);
-    if (parsed) transactions.push(parsed);
+    if (parsed) {
+      const normalized = normalizeSberTransaction(parsed);
+      if (normalized) transactions.push(normalized);
+    }
   }
 
   return transactions;
@@ -183,23 +354,21 @@ const parseTransactionLine = (line: string): { date: string; amount: number; typ
   const dateStr = `${match[3]}-${match[2]}-${match[1]}`;
   const rest = match[4];
 
-  const amountMatch = rest.match(/([+-]?)\s*(\d+(?:\s+\d+)*,\d{2})(?:\s|$)/);
+  const amountMatch = rest.match(/([+-]?)\s*(\d+(?:[\s\u00a0]\d{3})*,\d{2})(?:\s|$)/);
   if (!amountMatch) return null;
 
   const sign = amountMatch[1] || '';
-  const amount = parseFloat(amountMatch[2].replace(/\s/g, '').replace(',', '.'));
+  const amount = normalizeSberAmount(amountMatch[2]);
   if (isNaN(amount) || amount < 1) return null;
 
   const type = sign === '+' ? 'income' : 'expense';
 
   const beforeAmount = rest.substring(0, rest.indexOf(amountMatch[0])).trim();
 
-  let category = 'other';
+  let category = 'Прочие операции';
   let description = beforeAmount;
 
-  const knownCategories = ['Транспорт', 'Супермаркеты', 'Рестораны и кафе', 'Автомобиль', 'Одежда и аксессуары', 'Прочие операции', 'Перевод с карты', 'Перевод на карту', 'Перевод СБП', 'Внесение наличных', 'Оплата по QR–коду СБП'];
-
-  for (const cat of knownCategories) {
+  for (const cat of knownSberCategories) {
     if (beforeAmount.includes(cat)) {
       category = cat;
       description = beforeAmount.replace(cat, '').trim();
@@ -210,6 +379,103 @@ const parseTransactionLine = (line: string): { date: string; amount: number; typ
   description = description.replace(/[*#]/g, '').replace(/\s+/g, ' ').trim();
 
   return { date: dateStr, amount, type, description, category };
+};
+
+const isDuplicateTransaction = (newT: SberTransaction, existing: any[]) => existing.some((t: any) =>
+  t.date === newT.date &&
+  parseFloat(t.amount) === newT.amount &&
+  t.type === newT.type &&
+  t.accountId === sberAccount.value &&
+  (t.note || '').includes(newT.description.slice(0, 32))
+);
+
+const toAppTransaction = (item: SberTransaction) => {
+  const now = new Date().toISOString();
+  return {
+    id: uuidv4(),
+    accountId: sberAccount.value,
+    type: item.type,
+    amount: item.amount,
+    date: item.date,
+    note: `${item.description} [${getCategoryName(item.categoryId)}]`,
+    categoryId: item.categoryId,
+    createdAt: now,
+    updatedAt: now
+  };
+};
+
+const importSberTransactions = (items: SberTransaction[]) => {
+  saveRules();
+  ensureSberCategories();
+
+  const existing = getTransactions();
+  const toAdd = items.filter(item => !isDuplicateTransaction(item, existing));
+  const all = [...existing, ...toAdd.map(toAppTransaction)];
+  localStorage.setItem('budget_transactions', JSON.stringify(all));
+  syncToServer();
+  return { added: toAdd.length, skipped: items.length - toAdd.length };
+};
+
+const triggerSberPdfImport = () => {
+  sberPdfInput.value?.click();
+};
+
+const extractPdfText = async (file: File) => {
+  const pdfjs = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+  const data = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data }).promise;
+  const lines: string[] = [];
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const content = await page.getTextContent();
+    const items = content.items as Array<{ str: string; transform: number[] }>;
+    const rows = new Map<number, string[]>();
+
+    items.forEach(item => {
+      const y = Math.round(item.transform[5]);
+      if (!rows.has(y)) rows.set(y, []);
+      rows.get(y)?.push(item.str);
+    });
+
+    [...rows.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .forEach(([, parts]) => lines.push(parts.join(' ').replace(/\s+/g, ' ').trim()));
+  }
+
+  return lines.join('\n');
+};
+
+const importSberPdf = async (e: Event) => {
+  const files = Array.from((e.target as HTMLInputElement).files || []);
+  if (!files.length) return;
+
+  sberLoading.value = true;
+  try {
+    const parsed: SberTransaction[] = [];
+    for (const file of files) {
+      const text = await extractPdfText(file);
+      parsed.push(...parseSberText(text));
+    }
+    const unique = new Map(parsed.map(item => [item.key, item]));
+    sberPreview.value = [...unique.values()].sort((a, b) => b.date.localeCompare(a.date));
+    if (!sberPreview.value.length) {
+      $q.notify({ message: 'Не удалось найти операции в PDF', color: 'negative' });
+    }
+  } catch (err) {
+    $q.notify({ message: 'Не удалось прочитать PDF. Попробуйте текстовый импорт.', color: 'negative' });
+  } finally {
+    sberLoading.value = false;
+    if (sberPdfInput.value) sberPdfInput.value.value = '';
+  }
+};
+
+const confirmSberPreviewImport = () => {
+  const result = importSberTransactions(sberPreview.value);
+  sberPreview.value = [];
+  $q.notify({ message: `Импортировано ${result.added} операций, дублей пропущено: ${result.skipped}`, color: 'positive' });
+  setTimeout(() => location.reload(), 1000);
 };
 
 const importSberText = async () => {
@@ -229,95 +495,10 @@ const importSberText = async () => {
       return;
     }
 
-    saveRules();
-
-    const existing = getTransactions();
-    const sberToAppCategory: Record<string, { id: string; type: 'income' | 'expense'; name: string }> = {
-      'Транспорт': { id: 'transport', type: 'expense', name: 'Транспорт' },
-      'Супермаркеты': { id: 'supermarket', type: 'expense', name: 'Супермаркеты' },
-      'Рестораны и кафе': { id: 'restaurants', type: 'expense', name: 'Рестораны и кафе' },
-      'Автомобиль': { id: 'fuel', type: 'expense', name: 'Бензин' },
-      'Одежда и аксессуары': { id: 'clothes', type: 'expense', name: 'Одежда и аксессуары' },
-      'Прочие операции': { id: 'other', type: 'expense', name: 'Прочее' },
-      'Оплата по QR–коду СБП': { id: 'other', type: 'expense', name: 'Прочее' },
-      'Внесение наличных': { id: 'income', type: 'income', name: 'Доходы' },
-      'Заработная плата': { id: 'salary', type: 'income', name: 'Зарплата' },
-      'Компенсации': { id: 'income', type: 'income', name: 'Доходы' },
-      'Перевод с карты': { id: 'transfers', type: 'expense', name: 'Переводы' },
-      'Перевод на карту': { id: 'transfers', type: 'income', name: 'Переводы' },
-      'Перевод СБП': { id: 'transfers', type: 'expense', name: 'Переводы' }
-    };
-
-    const existingCategories = getCategories();
-    const existingCategoryIds = new Set(existingCategories.map(c => c.id));
-
-    for (const [, catInfo] of Object.entries(sberToAppCategory)) {
-      if (!existingCategoryIds.has(catInfo.id)) {
-        const icon = catInfo.id === 'fuel' ? 'local_gas_station' : (catInfo.type === 'income' ? 'account_balance_wallet' : 'shopping_bag');
-        existingCategories.push({
-          id: catInfo.id,
-          name: catInfo.name,
-          type: catInfo.type,
-          icon,
-          color: catInfo.type === 'income' ? '#4CAF50' : '#2196F3',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-      }
-    }
-    localStorage.setItem('budget_categories', JSON.stringify(existingCategories));
-
-    const newTransactions = parsed.map(t => {
-      const catMap = sberToAppCategory[t.category];
-      let type = t.type;
-      let categoryId = catMap?.id || 'other';
-
-      const fuelKeywords = ['AZS', 'ГАЗ', 'НЕФТЬ', 'ЛУКОЙЛ', 'ШЕЛЛ', 'БП', 'ТРАНСНЕФТЬ', 'РОСНЕФТЬ', 'ЗАПРАВКА', 'АЗС', 'ГАЗПРОМНЕФТЬ', 'ПЕТРОТЕСТ', 'ФАКЕЛ', 'АВТОГРАД', 'MIRATORG', 'НАВИГАТОР', 'VOSTOK', 'ВЕСТА'];
-      const supermarketKeywords = ['PYATEROCHKA', 'LENTA', 'MAGNIT', 'AUCHAN', 'OKEY', 'DIXY', 'METRO', 'KRAUT', 'BILLA', 'PEREKRESTOK', 'KUPER', 'PYATEROCHKA', 'ПЯТЕРОЧКА', 'ЛЕНТА', 'МАГНИТ', 'АШАН', 'ОКЕЙ', 'ДИКСИ', 'МЕТРО', 'КРАУТ', 'БИЛЛА', 'ПЕРЕКРЕСТОК', 'КУПЕР'];
-
-      if (t.category === 'Перевод с карты') {
-        if (t.description.includes('Операция по счету') || t.description.includes('на платежный счет')) {
-          type = 'income';
-        } else {
-          type = 'expense';
-        }
-      } else if (t.category === 'Внесение наличных') {
-        type = 'income';
-        categoryId = 'income';
-      }
-
-      const descUpper = t.description.toUpperCase();
-      if (fuelKeywords.some(k => descUpper.includes(k))) {
-        categoryId = 'fuel';
-      } else if (supermarketKeywords.some(k => descUpper.includes(k))) {
-        categoryId = 'supermarket';
-      }
-
-      return {
-        id: uuidv4(),
-        accountId: sberAccount.value,
-        type,
-        amount: t.amount,
-        date: t.date,
-        note: t.description ? `${t.description} [${catMap?.name || t.category}]` : (catMap?.name || t.category),
-        categoryId: categoryId === 'other' ? (findCategoryByKeyword(t.description) || categoryId) : categoryId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-    });
-
-    const isDuplicate = (newT: any) => existing.some((t: any) =>
-      t.date === newT.date && t.amount === newT.amount && t.type === newT.type && t.accountId === newT.accountId
-    );
-
-    const toAdd = newTransactions.filter(t => !isDuplicate(t));
-    const all = [...existing, ...toAdd];
-    localStorage.setItem('budget_transactions', JSON.stringify(all));
-    syncToServer();
-
+    const result = importSberTransactions(parsed);
     sberText.value = '';
 
-    $q.notify({ message: `Импортировано ${newTransactions.length} операций`, color: 'positive' });
+    $q.notify({ message: `Импортировано ${result.added} операций, дублей пропущено: ${result.skipped}`, color: 'positive' });
     setTimeout(() => location.reload(), 1000);
   } catch (err) {
     $q.notify({ message: 'Ошибка импорта', color: 'negative' });
