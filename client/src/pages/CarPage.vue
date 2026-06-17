@@ -98,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getTransactions, deleteTransaction as delTrans, saveTransaction, formatNumber } from 'src/utils/storage';
 
@@ -280,8 +280,9 @@ const handleAddFuel = () => {
 };
 
 onMounted(() => {
-  if (route.query.add === 'fuel') {
-    handleAddFuel();
+  if (route.query.add === 'fuel' || sessionStorage.getItem('pending-add-fuel')) {
+    sessionStorage.removeItem('pending-add-fuel');
+    nextTick(handleAddFuel);
     const query = { ...route.query };
     delete query.add;
     router.replace({ path: route.path, query });

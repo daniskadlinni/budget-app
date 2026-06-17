@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { v4 as uuidv4 } from 'uuid';
 import { getTransactions, saveTransaction, deleteTransaction, getCategories, getAccountBalance, formatNumber } from 'src/utils/storage';
@@ -210,9 +210,11 @@ const openDialog = (event?: Event | 'expense' | 'income' | 'transfer') => {
 };
 
 const openFromRoute = () => {
-  const add = route.query.add;
+  const pendingAdd = sessionStorage.getItem('pending-add-transaction');
+  const add = route.query.add || pendingAdd;
   if (add === 'expense' || add === 'income' || add === 'transfer') {
-    openDialog(add);
+    sessionStorage.removeItem('pending-add-transaction');
+    nextTick(() => openDialog(add));
     const query = { ...route.query };
     delete query.add;
     router.replace({ path: route.path, query });

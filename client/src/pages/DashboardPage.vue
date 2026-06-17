@@ -175,10 +175,12 @@ const getLabel = (t: any) => {
 const formatDate = (d: string) => new Date(d).toLocaleDateString('ru-RU');
 
 const openTransaction = (type: 'expense' | 'income' | 'transfer') => {
+  sessionStorage.setItem('pending-add-transaction', type);
   router.push({ path: '/transactions', query: { add: type } });
 };
 
 const openFuel = () => {
+  sessionStorage.setItem('pending-add-fuel', '1');
   router.push({ path: '/car', query: { add: 'fuel' } });
 };
 
