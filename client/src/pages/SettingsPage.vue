@@ -38,19 +38,10 @@
       <q-tab-panel name="import" class="q-pa-none">
         <q-card class="q-mb-md">
           <q-card-section>
-            <div class="text-h6">Импорт из CSV</div>
-            <p class="text-caption text-grey">Импорт транзакций из банковской выписки (CSV)</p>
-            <q-select v-model="csvAccount" :options="accountOptions" label="Счёт для импорта" emit-value map-options filled class="q-mt-sm" />
-            <q-btn color="secondary" label="Импорт CSV" class="q-mt-md" @click="triggerCsvImport" />
-            <input ref="csvFileInput" type="file" accept=".csv" style="display:none" @change="importCSV" />
-          </q-card-section>
-        </q-card>
-
-        <q-card class="q-mb-md">
-          <q-card-section>
             <div class="text-h6">Импорт PDF Сбербанка</div>
             <p class="text-caption text-grey">Можно выбрать одну или несколько PDF-выписок. Внутренние переводы между своими счетами будут пропущены.</p>
             <q-select v-model="sberAccount" :options="accountOptions" label="Счёт" emit-value map-options filled class="q-mt-sm" />
+            <q-input v-model="sberTargetBalance" label="Фактический остаток по выбранным PDF-счетам" filled class="q-mt-sm" inputmode="decimal" clearable />
             <q-btn color="primary" label="Выбрать PDF" class="q-mt-md" @click="triggerSberPdfImport" :loading="sberLoading" />
             <input ref="sberPdfInput" type="file" accept=".pdf,application/pdf" multiple style="display:none" @change="importSberPdf" />
           </q-card-section>
@@ -104,15 +95,6 @@
                 </q-item-section>
               </q-item>
             </q-list>
-          </q-card-section>
-        </q-card>
-
-        <q-card class="q-mb-md">
-          <q-card-section>
-            <div class="text-h6">Импорт из текста Сбербанка</div>
-            <p class="text-caption text-grey">Запасной вариант: скопируйте текст из PDF выписки Сбербанка и вставьте сюда</p>
-            <q-input v-model="sberText" type="textarea" label="Вставьте текст из PDF" filled class="q-mt-sm" style="min-height: 150px" />
-            <q-btn color="secondary" label="Импортировать" class="q-mt-md" @click="importSberText" :loading="sberLoading" />
           </q-card-section>
         </q-card>
 
@@ -173,11 +155,9 @@ const $q = useQuasar();
 const settingsTab = ref('general');
 const darkMode = ref($q.dark.isActive);
 const fileInput = ref<HTMLInputElement | null>(null);
-const csvFileInput = ref<HTMLInputElement | null>(null);
 const sberPdfInput = ref<HTMLInputElement | null>(null);
-const csvAccount = ref('general-cash');
-const sberText = ref('');
 const sberAccount = ref('general-card');
+const sberTargetBalance = ref('');
 const sberLoading = ref(false);
 const sberPreview = ref<SberTransaction[]>([]);
 const currentSberImportBatchId = ref('');
@@ -196,12 +176,19 @@ const STORAGE_KEY_CATEGORY_RULES = 'budget_category_rules';
 type SberTransaction = {
   key: string;
   date: string;
+  time?: string;
   amount: number;
   type: 'income' | 'expense';
   description: string;
   sourceCategory: string;
   categoryId: string;
+  accountTail?: string;
   isOpening?: boolean;
+};
+
+type SberStatementBalance = {
+  closing: number;
+  closeDate: string;
 };
 
 const sberPreviewToAdd = computed(() => {
@@ -321,11 +308,22 @@ const formatPreviewAmount = (amount: number) => amount.toLocaleString('ru-RU', {
 
 const getCategoryName = (id: string) => getCategories().find((category: any) => category.id === id)?.name || 'Прочее';
 
+const roundMoney = (amount: number) => Math.round(amount * 100) / 100;
+
+const parseOptionalSberTargetBalance = () => {
+  if (!sberTargetBalance.value.trim()) return null;
+  const amount = normalizeSberAmount(sberTargetBalance.value);
+  return isNaN(amount) ? null : amount;
+};
+
 const getTransferCounterparty = (transaction: Pick<SberTransaction, 'sourceCategory' | 'description'>) => {
   if (!transaction.sourceCategory.includes('Перевод')) return '';
   const match = transaction.description.match(/Перевод (?:для|от)\s+(.+?)(?:\. Операция|$)/i);
   return match?.[1]?.replace(/\s+/g, ' ').trim().toLowerCase() || '';
 };
+
+const isTransferLike = (transaction: SberTransaction) =>
+  transaction.sourceCategory.includes('Перевод') || /перевод|sberbank onl@in/i.test(transaction.description);
 
 const removePairedInternalTransfers = (transactions: SberTransaction[]) => {
   const grouped = new Map<string, { income: SberTransaction[]; expense: SberTransaction[] }>();
@@ -342,6 +340,26 @@ const removePairedInternalTransfers = (transactions: SberTransaction[]) => {
 
   const pairedTransactions = new Set<SberTransaction>();
   grouped.forEach(group => {
+    const pairCount = Math.min(group.income.length, group.expense.length);
+    for (let i = 0; i < pairCount; i++) {
+      pairedTransactions.add(group.income[i]);
+      pairedTransactions.add(group.expense[i]);
+    }
+  });
+
+  const remaining = transactions.filter(transaction => !pairedTransactions.has(transaction));
+  const exactGroups = new Map<string, { income: SberTransaction[]; expense: SberTransaction[] }>();
+
+  remaining
+    .filter(isTransferLike)
+    .forEach(transaction => {
+      const key = `${transaction.date}-${transaction.time || ''}-${transaction.amount.toFixed(2)}`;
+      const group = exactGroups.get(key) || { income: [], expense: [] };
+      group[transaction.type].push(transaction);
+      exactGroups.set(key, group);
+    });
+
+  exactGroups.forEach(group => {
     const pairCount = Math.min(group.income.length, group.expense.length);
     for (let i = 0; i < pairCount; i++) {
       pairedTransactions.add(group.income[i]);
@@ -387,21 +405,28 @@ const detectCategory = (sourceCategory: string, description: string) => {
   return sberCategoryMap[sourceCategory]?.id || 'cat-other-exp';
 };
 
-const normalizeSberTransaction = (raw: { date: string; amount: number; type: 'income' | 'expense'; description: string; category: string }): SberTransaction | null => {
+const normalizeSberTransaction = (raw: { date: string; time: string; amount: number; type: 'income' | 'expense'; description: string; category: string; accountTail?: string }): SberTransaction | null => {
   let type = raw.type;
   if (raw.category === 'Внесение наличных' || raw.category === 'Заработная плата' || raw.category === 'Компенсации' || raw.category === 'Начальный остаток') {
     type = 'income';
   }
 
-  const categoryId = detectCategory(raw.category, raw.description);
+  let categoryId = detectCategory(raw.category, raw.description);
+  const mappedCategory = sberCategoryMap[raw.category];
+  if (type === 'income' && (!mappedCategory || mappedCategory.type === 'expense') && categoryId === 'cat-other-exp') {
+    categoryId = 'cat-other-inc';
+  }
+
   return {
-    key: `${raw.date}-${type}-${raw.amount}-${raw.description}`,
+    key: `${raw.date}-${raw.time}-${type}-${raw.amount}-${raw.accountTail || ''}-${raw.description}`,
     date: raw.date,
+    time: raw.time,
     amount: raw.amount,
     type,
     description: raw.description,
     sourceCategory: raw.category,
-    categoryId
+    categoryId,
+    accountTail: raw.accountTail
   };
 };
 
@@ -464,12 +489,27 @@ const parseOpeningBalances = (text: string): SberTransaction[] => {
   }];
 };
 
-const parseTransactionLine = (line: string): { date: string; amount: number; type: 'income' | 'expense'; description: string; category: string } | null => {
-  const match = line.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+\d{2}:\d{2}\s+(.+)$/);
+const parseStatementBalance = (text: string): SberStatementBalance | null => {
+  const balances = [...text.matchAll(/Остаток на\s+(\d{2})\.(\d{2})\.(\d{4})\s+([-+]?\d[\d\s\u00a0]*,\d{2})/g)];
+  const closing = balances[balances.length - 1];
+  if (!closing) return null;
+
+  const amount = normalizeSberAmount(closing[4]);
+  if (isNaN(amount)) return null;
+
+  return {
+    closeDate: `${closing[3]}-${closing[2]}-${closing[1]}`,
+    closing: amount
+  };
+};
+
+const parseTransactionLine = (line: string): { date: string; time: string; amount: number; type: 'income' | 'expense'; description: string; category: string; accountTail?: string } | null => {
+  const match = line.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}:\d{2})\s+(.+)$/);
   if (!match) return null;
 
   const dateStr = `${match[3]}-${match[2]}-${match[1]}`;
-  const rest = match[4];
+  const time = match[4];
+  const rest = match[5];
 
   const amountMatch = rest.match(/([+-]?)\s*(\d+(?:[\s\u00a0]\d{3})*,\d{2})(?:\s|$)/);
   if (!amountMatch) return null;
@@ -500,8 +540,35 @@ const parseTransactionLine = (line: string): { date: string; amount: number; typ
     .trim();
   description = `${description} ${details}`.trim() || category;
   description = description.replace(/[*#]/g, '').replace(/\s+/g, ' ').trim();
+  const accountTail = description.match(/Операция по (?:счету|карте)\s+(\d{4})/)?.[1];
 
-  return { date: dateStr, amount, type, description, category };
+  return { date: dateStr, time, amount, type, description, category, accountTail };
+};
+
+const createBalanceCorrection = (transactions: SberTransaction[], statements: SberStatementBalance[], targetBalance: number | null = null) => {
+  if (!statements.length && targetBalance === null) return null;
+
+  const expectedBalance = roundMoney(targetBalance ?? statements.reduce((sum, statement) => sum + statement.closing, 0));
+  const actualBalance = roundMoney(transactions.reduce((sum, transaction) =>
+    sum + (transaction.type === 'income' ? transaction.amount : -transaction.amount), 0));
+  const difference = roundMoney(expectedBalance - actualBalance);
+  if (Math.abs(difference) < 0.01) return null;
+
+  const date = statements
+    .map(statement => statement.closeDate)
+    .sort((a, b) => b.localeCompare(a))[0];
+  const type = difference > 0 ? 'income' : 'expense';
+  const amount = Math.abs(difference);
+
+  return {
+    key: `balance-correction-${date}-${type}-${amount}-${expectedBalance}`,
+    date,
+    amount,
+    type,
+    description: `Корректировка остатка Сбер до ${formatPreviewAmount(expectedBalance)}`,
+    sourceCategory: 'Корректировка остатка',
+    categoryId: type === 'income' ? 'cat-other-inc' : 'cat-other-exp'
+  } as SberTransaction;
 };
 
 const isDuplicateTransaction = (newT: SberTransaction, existing: any[]) => {
@@ -550,7 +617,13 @@ const importSberTransactions = (items: SberTransaction[]) => {
 
   const existing = getTransactions();
   currentSberImportBatchId.value = `sber-${Date.now()}`;
-  const toAdd = items.filter(item => !isDuplicateTransaction(item, existing));
+  const seenIncoming = new Set<string>();
+  const toAdd = items.filter(item => {
+    const signature = `${item.date}-${item.time || ''}-${item.type}-${item.amount}-${item.accountTail || ''}-${item.description}`;
+    if (seenIncoming.has(signature)) return false;
+    seenIncoming.add(signature);
+    return !isDuplicateTransaction(item, existing);
+  });
   const all = [...existing, ...toAdd.map(toAppTransaction)];
   localStorage.setItem('budget_transactions', JSON.stringify(all));
   syncToServer();
@@ -572,17 +645,25 @@ const extractPdfText = async (file: File) => {
     const page = await pdf.getPage(pageNum);
     const content = await page.getTextContent();
     const items = content.items as Array<{ str: string; transform: number[] }>;
-    const rows = new Map<number, string[]>();
+    const rows = new Map<number, Array<{ x: number; text: string }>>();
 
     items.forEach(item => {
       const y = Math.round(item.transform[5]);
       if (!rows.has(y)) rows.set(y, []);
-      rows.get(y)?.push(item.str);
+      rows.get(y)?.push({ x: item.transform[4], text: item.str });
     });
 
     [...rows.entries()]
       .sort((a, b) => b[0] - a[0])
-      .forEach(([, parts]) => lines.push(parts.join(' ').replace(/\s+/g, ' ').trim()));
+      .forEach(([, parts]) => {
+        const line = parts
+          .sort((a, b) => a.x - b.x)
+          .map(part => part.text)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (line) lines.push(line);
+      });
   }
 
   return lines.join('\n');
@@ -595,12 +676,17 @@ const importSberPdf = async (e: Event) => {
   sberLoading.value = true;
   try {
     const parsed: SberTransaction[] = [];
+    const statements: SberStatementBalance[] = [];
     for (const file of files) {
       const text = await extractPdfText(file);
+      const statement = parseStatementBalance(text);
+      if (statement) statements.push(statement);
       parsed.push(...parseSberText(text));
     }
     const withoutInternalTransfers = removePairedInternalTransfers(parsed);
-    sberPreview.value = makePreviewKeysUnique(withoutInternalTransfers)
+    const correction = createBalanceCorrection(withoutInternalTransfers, statements, parseOptionalSberTargetBalance());
+    const previewItems = correction ? [...withoutInternalTransfers, correction] : withoutInternalTransfers;
+    sberPreview.value = makePreviewKeysUnique(previewItems)
       .sort((a, b) => b.date.localeCompare(a.date));
     if (!sberPreview.value.length) {
       $q.notify({ message: 'Не удалось найти операции в PDF', color: 'negative' });
@@ -618,35 +704,6 @@ const confirmSberPreviewImport = () => {
   sberPreview.value = [];
   $q.notify({ message: `Импортировано ${result.added} операций, дублей пропущено: ${result.skipped}`, color: 'positive' });
   setTimeout(() => location.reload(), 1000);
-};
-
-const importSberText = async () => {
-  if (!sberText.value.trim()) {
-    $q.notify({ message: 'Вставьте текст из PDF', color: 'negative' });
-    return;
-  }
-
-  sberLoading.value = true;
-
-  try {
-    const parsed = removePairedInternalTransfers(parseSberText(sberText.value));
-
-    if (parsed.length === 0) {
-      $q.notify({ message: 'Не удалось распознать транзакции', color: 'negative' });
-      sberLoading.value = false;
-      return;
-    }
-
-    const result = importSberTransactions(parsed);
-    sberText.value = '';
-
-    $q.notify({ message: `Импортировано ${result.added} операций, дублей пропущено: ${result.skipped}`, color: 'positive' });
-    setTimeout(() => location.reload(), 1000);
-  } catch (err) {
-    $q.notify({ message: 'Ошибка импорта', color: 'negative' });
-  }
-
-  sberLoading.value = false;
 };
 
 const removePdfTransactions = (predicate: (transaction: any) => boolean) => {
@@ -749,114 +806,6 @@ const importData = (e: Event) => {
   reader.readAsText(file);
 };
 
-const triggerCsvImport = () => {
-  initCategories();
-  csvFileInput.value?.click();
-};
-
-const parseCSV = (text: string): { date: string; amount: number; type: 'income' | 'expense'; description: string }[] => {
-  const lines = text.split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
-
-  const headers = lines[0].toLowerCase();
-  let dateIndex = -1, amountIndex = -1, descIndex = -1;
-
-  const cols = headers.split(/[,;]/);
-  cols.forEach((col, i) => {
-    const c = col.trim().toLowerCase();
-    if (c.includes('дата') || c.includes('date')) dateIndex = i;
-    if (c.includes('сумма') || c.includes('amount') || c.includes('sum')) amountIndex = i;
-    if (c.includes('описание') || c.includes('desc') || c.includes('назначение')) descIndex = i;
-  });
-
-  if (dateIndex === -1 || amountIndex === -1) {
-    for (let i = 0; i < cols.length; i++) {
-      if (dateIndex === -1) dateIndex = i;
-      else if (amountIndex === -1) amountIndex = i;
-      else break;
-    }
-  }
-
-  const transactions: { date: string; amount: number; type: 'income' | 'expense'; description: string }[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(/[,;]/);
-    if (cols.length <= Math.max(dateIndex, amountIndex)) continue;
-
-    let dateStr = cols[dateIndex]?.trim() || '';
-    let amountStr = cols[amountIndex]?.trim() || '0';
-
-    const dateMatch = dateStr.match(/(\d{2})[./](\d{2})[./](\d{4})/);
-    if (dateMatch) {
-      dateStr = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
-    } else if (dateStr.includes('-')) {
-      const parts = dateStr.split('-');
-      if (parts[0].length !== 4) {
-        dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
-      }
-    }
-
-    amountStr = amountStr.replace(/[^\d.,-]/g, '').replace(',', '.');
-    const amount = parseFloat(amountStr);
-
-    if (isNaN(amount) || isNaN(Date.parse(dateStr))) continue;
-
-    const description = descIndex >= 0 ? cols[descIndex]?.trim() || '' : '';
-
-    transactions.push({
-      date: dateStr,
-      amount: Math.abs(amount),
-      type: amount < 0 ? 'expense' : 'income',
-      description
-    });
-  }
-
-  return transactions;
-};
-
-const importCSV = (e: Event) => {
-  const file = (e.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    try {
-      const text = ev.target?.result as string;
-      const parsed = parseCSV(text);
-
-      if (parsed.length === 0) {
-        $q.notify({ message: 'Не удалось распознать CSV', color: 'negative' });
-        return;
-      }
-
-      saveRules();
-
-      const existing = getTransactions();
-      const newTransactions = parsed.map(t => ({
-        id: uuidv4(),
-        accountId: csvAccount.value,
-        type: t.type,
-        amount: t.amount,
-        date: t.date,
-        note: t.description,
-        categoryId: findCategoryByKeyword(t.description),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }));
-
-      const all = [...existing, ...newTransactions];
-      localStorage.setItem('budget_transactions', JSON.stringify(all));
-      syncToServer();
-
-      $q.notify({ message: `Импортировано ${newTransactions.length} операций`, color: 'positive' });
-      setTimeout(() => location.reload(), 1000);
-    } catch (err) {
-      $q.notify({ message: 'Ошибка импорта CSV', color: 'negative' });
-    }
-  };
-  reader.readAsText(file);
-};
-
 const confirmReset = () => {
   $q.dialog({
     title: 'Сброс операций',
@@ -873,7 +822,6 @@ const confirmReset = () => {
       await clearTransactionsOnServer();
       localStorage.setItem('budget_transactions', '[]');
       sberPreview.value = [];
-      sberText.value = '';
       $q.notify({ message: 'Операции удалены', color: 'positive' });
       setTimeout(() => location.reload(), 1000);
     });
