@@ -146,7 +146,8 @@ import {
   exportStructureData as expStructure,
   importData as imp,
   getCategories,
-  getTransactions
+  getTransactions,
+  getAccountBalance
 } from 'src/utils/storage';
 import { clearTransactionsOnServer, syncToServer } from 'src/utils/sync';
 import { v4 as uuidv4 } from 'uuid';
@@ -309,6 +310,10 @@ const formatPreviewAmount = (amount: number) => amount.toLocaleString('ru-RU', {
 const getCategoryName = (id: string) => getCategories().find((category: any) => category.id === id)?.name || 'Прочее';
 
 const roundMoney = (amount: number) => Math.round(amount * 100) / 100;
+
+const getTransactionsBalanceDelta = (transactions: SberTransaction[]) =>
+  roundMoney(transactions.reduce((sum, transaction) =>
+    sum + (transaction.type === 'income' ? transaction.amount : -transaction.amount), 0));
 
 const parseOptionalSberTargetBalance = () => {
   if (!sberTargetBalance.value.trim()) return null;
@@ -545,18 +550,28 @@ const parseTransactionLine = (line: string): { date: string; time: string; amoun
   return { date: dateStr, time, amount, type, description, category, accountTail };
 };
 
+const getNewSberTransactions = (items: SberTransaction[], existing = getTransactions()) => {
+  const seenIncoming = new Set<string>();
+  return items.filter(item => {
+    const signature = `${item.date}-${item.time || ''}-${item.type}-${item.amount}-${item.accountTail || ''}-${item.description}`;
+    if (seenIncoming.has(signature)) return false;
+    seenIncoming.add(signature);
+    return !isDuplicateTransaction(item, existing);
+  });
+};
+
 const createBalanceCorrection = (transactions: SberTransaction[], statements: SberStatementBalance[], targetBalance: number | null = null) => {
   if (!statements.length && targetBalance === null) return null;
 
   const expectedBalance = roundMoney(targetBalance ?? statements.reduce((sum, statement) => sum + statement.closing, 0));
-  const actualBalance = roundMoney(transactions.reduce((sum, transaction) =>
-    sum + (transaction.type === 'income' ? transaction.amount : -transaction.amount), 0));
+  const balanceAfterImport = roundMoney(getAccountBalance(sberAccount.value) + getTransactionsBalanceDelta(getNewSberTransactions(transactions)));
+  const actualBalance = balanceAfterImport;
   const difference = roundMoney(expectedBalance - actualBalance);
   if (Math.abs(difference) < 0.01) return null;
 
-  const date = statements
-    .map(statement => statement.closeDate)
-    .sort((a, b) => b.localeCompare(a))[0];
+  const date = statements.length
+    ? statements.map(statement => statement.closeDate).sort((a, b) => b.localeCompare(a))[0]
+    : transactions.map(transaction => transaction.date).sort((a, b) => b.localeCompare(a))[0];
   const type = difference > 0 ? 'income' : 'expense';
   const amount = Math.abs(difference);
 
@@ -617,13 +632,7 @@ const importSberTransactions = (items: SberTransaction[]) => {
 
   const existing = getTransactions();
   currentSberImportBatchId.value = `sber-${Date.now()}`;
-  const seenIncoming = new Set<string>();
-  const toAdd = items.filter(item => {
-    const signature = `${item.date}-${item.time || ''}-${item.type}-${item.amount}-${item.accountTail || ''}-${item.description}`;
-    if (seenIncoming.has(signature)) return false;
-    seenIncoming.add(signature);
-    return !isDuplicateTransaction(item, existing);
-  });
+  const toAdd = getNewSberTransactions(items, existing);
   const all = [...existing, ...toAdd.map(toAppTransaction)];
   localStorage.setItem('budget_transactions', JSON.stringify(all));
   syncToServer();
