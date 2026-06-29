@@ -56,14 +56,16 @@
             <div class="text-h6 text-negative">-{{ formatNumber(totalExpense) }}</div>
           </div>
           <div class="col-6 col-md-3">
-            <div class="text-caption text-grey">Баланс</div>
+            <div class="text-caption text-grey">Итог периода</div>
             <div class="text-h6" :class="balance >= 0 ? 'text-positive' : 'text-negative'">
               {{ formatNumber(balance) }}
             </div>
           </div>
           <div class="col-6 col-md-3">
-            <div class="text-caption text-grey">Операций</div>
-            <div class="text-h6">{{ transactionsCount }}</div>
+            <div class="text-caption text-grey">Баланс счетов</div>
+            <div class="text-h6" :class="accountsBalance >= 0 ? 'text-positive' : 'text-negative'">
+              {{ formatNumber(accountsBalance) }}
+            </div>
           </div>
         </div>
       </q-card-section>
@@ -135,7 +137,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { Doughnut, Bar } from 'vue-chartjs';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
-import { getTransactions, getCategories, updateTransaction, formatNumber } from 'src/utils/storage';
+import { getTransactions, getCategories, updateTransaction, formatNumber, getAccountBalance } from 'src/utils/storage';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
@@ -192,7 +194,9 @@ const totalExpense = computed(() =>
 );
 
 const balance = computed(() => totalIncome.value - totalExpense.value);
-const transactionsCount = computed(() => filteredTransactions.value.filter(t => t.type !== 'transfer').length);
+const accountsBalance = computed(() =>
+  getAccountBalance('general-cash') + getAccountBalance('general-card') + getAccountBalance('savings')
+);
 
 const expenseCategories = computed(() => {
   const expenses = filteredTransactions.value.filter(t => t.type === 'expense');

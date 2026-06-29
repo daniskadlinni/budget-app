@@ -115,7 +115,9 @@ const totalExpense = computed(() => {
 });
 
 const totalTransfer = computed(() => {
-  return transactions.value.filter(t => t.type === 'transfer' && t.isTransferFrom).reduce((s, t) => s + t.amount, 0);
+  return transactions.value
+    .filter(t => (t.type === 'transfer' && t.isTransferFrom) || t.categoryId === 'transfers')
+    .reduce((s, t) => s + t.amount, 0);
 });
 
 const todayExpense = computed(() => {
