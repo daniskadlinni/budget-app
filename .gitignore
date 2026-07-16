@@ -25,6 +25,9 @@ build/
 .DS_Store
 Thumbs.db
 
+# Tool state
+supabase/.temp/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
