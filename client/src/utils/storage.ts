@@ -39,9 +39,28 @@ const defaultCategories = [
   { id: 'cat-other-inc', name: 'Прочее', type: 'income', color: '#9E9E9E' }
 ];
 
-const mergeByIdForSync = (local: any[], server: any[]) => {
+const syncDataTypes: Record<string, string> = {
+  accounts: 'account',
+  categories: 'category',
+  transactions: 'transaction',
+  budgets: 'budget',
+  goals: 'goal',
+  subscriptions: 'subscription',
+  stores: 'store',
+  shopping: 'shopping',
+  shoppingTemplates: 'shoppingTemplate',
+  products: 'product',
+  reminders: 'reminder'
+};
+
+const mergeByIdForSync = (local: any[], server: any[], deletedIds: any[] = [], type = '') => {
+  const deleted = new Set(
+    deletedIds
+      .filter((item: any) => item?.type === type)
+      .map((item: any) => item.id)
+  );
   const map = new Map<string, any>();
-  server.forEach(item => item?.id && map.set(item.id, item));
+  server.forEach(item => item?.id && !deleted.has(item.id) && map.set(item.id, item));
   local.forEach(item => {
     if (!item?.id) return;
     const serverItem = map.get(item.id);
@@ -104,17 +123,17 @@ const syncToServer = async () => {
     });
     const serverData = serverResponse.ok ? await serverResponse.json() : {};
     const data = {
-      accounts: mergeByIdForSync(localData.accounts, serverData.accounts || []),
-      categories: mergeByIdForSync(localData.categories, serverData.categories || []),
-      transactions: mergeByIdForSync(localData.transactions, serverData.transactions || []),
-      budgets: mergeByIdForSync(localData.budgets, serverData.budgets || []),
-      goals: mergeByIdForSync(localData.goals, serverData.goals || []),
-      subscriptions: mergeByIdForSync(localData.subscriptions, serverData.subscriptions || []),
-      stores: mergeByIdForSync(localData.stores, serverData.stores || []),
-      shopping: mergeByIdForSync(localData.shopping, serverData.shopping || []),
-      shoppingTemplates: mergeByIdForSync(localData.shoppingTemplates, serverData.shoppingTemplates || []),
-      products: mergeByIdForSync(localData.products, serverData.products || []),
-      reminders: mergeByIdForSync(localData.reminders, serverData.reminders || []),
+      accounts: mergeByIdForSync(localData.accounts, serverData.accounts || [], localData.deletedIds, syncDataTypes.accounts),
+      categories: mergeByIdForSync(localData.categories, serverData.categories || [], localData.deletedIds, syncDataTypes.categories),
+      transactions: mergeByIdForSync(localData.transactions, serverData.transactions || [], localData.deletedIds, syncDataTypes.transactions),
+      budgets: mergeByIdForSync(localData.budgets, serverData.budgets || [], localData.deletedIds, syncDataTypes.budgets),
+      goals: mergeByIdForSync(localData.goals, serverData.goals || [], localData.deletedIds, syncDataTypes.goals),
+      subscriptions: mergeByIdForSync(localData.subscriptions, serverData.subscriptions || [], localData.deletedIds, syncDataTypes.subscriptions),
+      stores: mergeByIdForSync(localData.stores, serverData.stores || [], localData.deletedIds, syncDataTypes.stores),
+      shopping: mergeByIdForSync(localData.shopping, serverData.shopping || [], localData.deletedIds, syncDataTypes.shopping),
+      shoppingTemplates: mergeByIdForSync(localData.shoppingTemplates, serverData.shoppingTemplates || [], localData.deletedIds, syncDataTypes.shoppingTemplates),
+      products: mergeByIdForSync(localData.products, serverData.products || [], localData.deletedIds, syncDataTypes.products),
+      reminders: mergeByIdForSync(localData.reminders, serverData.reminders || [], localData.deletedIds, syncDataTypes.reminders),
       deletedIds: [] as any[]
     };
     data.deletedIds = mergeDeletedIdsForSync(localData.deletedIds, serverData.deletedIds || [], data);

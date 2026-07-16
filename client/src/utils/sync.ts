@@ -21,10 +21,29 @@ const dataKeys = {
   reminders: 'budget_reminders'
 };
 
+const dataTypes: Record<string, string> = {
+  accounts: 'account',
+  categories: 'category',
+  transactions: 'transaction',
+  budgets: 'budget',
+  goals: 'goal',
+  subscriptions: 'subscription',
+  stores: 'store',
+  shopping: 'shopping',
+  shoppingTemplates: 'shoppingTemplate',
+  products: 'product',
+  reminders: 'reminder'
+};
+
 const readArray = (key: string) => JSON.parse(localStorage.getItem(key) || '[]');
-const mergeById = (local: any[], server: any[]) => {
+const mergeById = (local: any[], server: any[], deletedIds: any[] = [], type = '') => {
+  const deleted = new Set(
+    deletedIds
+      .filter((item: any) => item?.type === type)
+      .map((item: any) => item.id)
+  );
   const map = new Map<string, any>();
-  server.forEach(item => item?.id && map.set(item.id, item));
+  server.forEach(item => item?.id && !deleted.has(item.id) && map.set(item.id, item));
   local.forEach(item => {
     if (!item?.id) return;
     const serverItem = map.get(item.id);
@@ -104,13 +123,14 @@ export const trackDeletedId = (type: string, id: string) => {
 export const syncToServer = async () => {
   try {
     const local = readLocalData();
+    const localDeletedIds = getDeletedIds();
     const serverResponse = await fetch(API_URL, { headers: syncHeaders });
     const server = serverResponse.ok ? await serverResponse.json() : {};
     const data: Record<string, any> = {};
     Object.keys(dataKeys).forEach(key => {
-      data[key] = mergeById(local[key as keyof typeof local] || [], server[key] || []);
+      data[key] = mergeById(local[key as keyof typeof local] || [], server[key] || [], localDeletedIds, dataTypes[key]);
     });
-    data.deletedIds = mergeDeletedIds(getDeletedIds(), server.deletedIds || [], data);
+    data.deletedIds = mergeDeletedIds(localDeletedIds, server.deletedIds || [], data);
 
     const res = await fetch(API_URL, {
       method: 'POST',
@@ -239,9 +259,10 @@ export const syncFromServer = async () => {
     );
 
     if (shouldRestoreServer) {
+      const restoredLocalData = readLocalData();
       const restorePayload = {
-        ...readLocalData(),
-        deletedIds: mergeDeletedIds(getDeletedIds(), data.deletedIds || [], readLocalData())
+        ...restoredLocalData,
+        deletedIds: mergeDeletedIds(getDeletedIds(), data.deletedIds || [], restoredLocalData)
       };
       const restoreRes = await fetch(API_URL, {
         method: 'POST',
@@ -250,6 +271,9 @@ export const syncFromServer = async () => {
       });
       if (!restoreRes.ok) throw new Error(`Restore failed: ${restoreRes.status}`);
     }
+
+    const cleanedDeletedIds = mergeDeletedIds(getDeletedIds(), data.deletedIds || [], readLocalData());
+    localStorage.setItem(DELETED_KEY, JSON.stringify(cleanedDeletedIds));
 
     return {
       transactions: mergedData.transactions?.length ?? localTransactions.length,
@@ -303,7 +327,7 @@ export const clearTransactionsOnServer = async () => {
     };
     const res = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: syncHeaders,
       body: JSON.stringify(data)
     });
     const result = await res.json();
