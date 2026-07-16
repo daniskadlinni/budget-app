@@ -39,9 +39,53 @@ const defaultCategories = [
   { id: 'cat-other-inc', name: 'Прочее', type: 'income', color: '#9E9E9E' }
 ];
 
+const mergeByIdForSync = (local: any[], server: any[]) => {
+  const map = new Map<string, any>();
+  server.forEach(item => item?.id && map.set(item.id, item));
+  local.forEach(item => {
+    if (!item?.id) return;
+    const serverItem = map.get(item.id);
+    if (!serverItem) {
+      map.set(item.id, item);
+      return;
+    }
+
+    const localTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
+    const serverTime = new Date(serverItem.updatedAt || serverItem.createdAt || 0).getTime();
+    map.set(item.id, localTime >= serverTime ? item : serverItem);
+  });
+  return Array.from(map.values());
+};
+
+const mergeDeletedIdsForSync = (localDeleted: any[], serverDeleted: any[], data: any) => {
+  const active = new Set<string>();
+  Object.entries({
+    account: data.accounts,
+    category: data.categories,
+    transaction: data.transactions,
+    budget: data.budgets,
+    goal: data.goals,
+    subscription: data.subscriptions,
+    store: data.stores,
+    shopping: data.shopping,
+    shoppingTemplate: data.shoppingTemplates,
+    product: data.products,
+    reminder: data.reminders
+  }).forEach(([type, items]: [string, any]) => {
+    (items || []).forEach((item: any) => item?.id && active.add(`${type}:${item.id}`));
+  });
+
+  return Array.from(
+    new Map([...serverDeleted, ...localDeleted]
+      .filter((item: any) => item?.type && item?.id && !active.has(`${item.type}:${item.id}`))
+      .map((item: any) => [`${item.type}:${item.id}`, item]))
+      .values()
+  );
+};
+
 const syncToServer = async () => {
   try {
-    const data = {
+    const localData = {
       accounts: getAccounts(),
       categories: getCategories(),
       transactions: getTransactions(),
@@ -55,11 +99,32 @@ const syncToServer = async () => {
       reminders: getReminders(),
       deletedIds: getDeletedIds()
     };
-    await fetch(API_URL, {
+    const serverResponse = await fetch(API_URL, {
+      headers: { 'Authorization': `Bearer ${API_KEY}` }
+    });
+    const serverData = serverResponse.ok ? await serverResponse.json() : {};
+    const data = {
+      accounts: mergeByIdForSync(localData.accounts, serverData.accounts || []),
+      categories: mergeByIdForSync(localData.categories, serverData.categories || []),
+      transactions: mergeByIdForSync(localData.transactions, serverData.transactions || []),
+      budgets: mergeByIdForSync(localData.budgets, serverData.budgets || []),
+      goals: mergeByIdForSync(localData.goals, serverData.goals || []),
+      subscriptions: mergeByIdForSync(localData.subscriptions, serverData.subscriptions || []),
+      stores: mergeByIdForSync(localData.stores, serverData.stores || []),
+      shopping: mergeByIdForSync(localData.shopping, serverData.shopping || []),
+      shoppingTemplates: mergeByIdForSync(localData.shoppingTemplates, serverData.shoppingTemplates || []),
+      products: mergeByIdForSync(localData.products, serverData.products || []),
+      reminders: mergeByIdForSync(localData.reminders, serverData.reminders || []),
+      deletedIds: [] as any[]
+    };
+    data.deletedIds = mergeDeletedIdsForSync(localData.deletedIds, serverData.deletedIds || [], data);
+
+    const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
       body: JSON.stringify(data)
     });
+    if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
   } catch (e) {
     console.error('Sync error:', e);
   }

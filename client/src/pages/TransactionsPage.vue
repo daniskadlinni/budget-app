@@ -39,7 +39,7 @@
           <q-item-label>{{ getLabel(t) }}</q-item-label>
           <q-item-label caption>{{ getCatName(t.categoryId) }}</q-item-label>
           <q-item-label caption v-if="t.note">{{ t.note }}</q-item-label>
-          <q-item-label caption>{{ formatDate(t.date) }}</q-item-label>
+          <q-item-label caption>{{ formatDate(t.date) }}{{ t.importTime ? ` · ${t.importTime}` : '' }}</q-item-label>
         </q-item-section>
         <q-item-section side>
           <q-item-label :class="t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-negative' : 'text-primary'">
@@ -177,7 +177,9 @@ const filteredTransactions = computed(() => {
 });
 
 const getTransactionTimestamp = (transaction: any) => {
-  const value = transaction.createdAt || transaction.updatedAt || (transaction.date ? `${transaction.date}T00:00:00` : '');
+  const value = transaction.importTime && transaction.date
+    ? `${transaction.date}T${transaction.importTime}:00`
+    : transaction.date ? `${transaction.date}T00:00:00` : transaction.createdAt || transaction.updatedAt || '';
   const timestamp = new Date(value).getTime();
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
@@ -186,8 +188,18 @@ const compareByDateTime = (a: any, b: any, direction: 'asc' | 'desc') => {
   const dateCompare = (a.date || '').localeCompare(b.date || '');
   if (dateCompare !== 0) return direction === 'desc' ? -dateCompare : dateCompare;
 
+  if (a.source === 'sber-pdf' && b.source === 'sber-pdf' && a.importOrder !== undefined && b.importOrder !== undefined) {
+    const statementCompare = (a.statementOrder ?? 0) - (b.statementOrder ?? 0);
+    if (statementCompare !== 0) return direction === 'desc' ? statementCompare : -statementCompare;
+
+    const orderCompare = a.importOrder - b.importOrder;
+    if (orderCompare !== 0) return direction === 'desc' ? orderCompare : -orderCompare;
+  }
+
   const timeCompare = getTransactionTimestamp(a) - getTransactionTimestamp(b);
-  return direction === 'desc' ? -timeCompare : timeCompare;
+  if (timeCompare !== 0) return direction === 'desc' ? -timeCompare : timeCompare;
+
+  return (b.createdAt || '').localeCompare(a.createdAt || '');
 };
 
 const sortedTransactions = computed(() => {

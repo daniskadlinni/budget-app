@@ -56,6 +56,9 @@
             <div class="text-caption text-grey q-mb-sm">
               Найдено: {{ sberPreview.length }} · будет добавлено: {{ sberPreviewToAdd.length }} · дублей: {{ sberPreview.length - sberPreviewToAdd.length }}
             </div>
+            <q-banner v-if="sberImportWarnings.length" dense rounded class="bg-orange-1 text-orange-10 q-mb-sm">
+              <div v-for="warning in sberImportWarnings" :key="warning">{{ warning }}</div>
+            </q-banner>
             <div class="row q-col-gutter-sm q-mb-sm">
               <div class="col-12 col-sm-4">
                 <q-card flat bordered>
@@ -149,7 +152,7 @@ import {
   getTransactions,
   getAccountBalance
 } from 'src/utils/storage';
-import { clearTransactionsOnServer, syncToServer } from 'src/utils/sync';
+import { clearTransactionsOnServer, syncToServer, trackDeletedId } from 'src/utils/sync';
 import { v4 as uuidv4 } from 'uuid';
 
 const $q = useQuasar();
@@ -161,6 +164,7 @@ const sberAccount = ref('general-card');
 const sberTargetBalance = ref('');
 const sberLoading = ref(false);
 const sberPreview = ref<SberTransaction[]>([]);
+const sberImportWarnings = ref<string[]>([]);
 const currentSberImportBatchId = ref('');
 
 const accountOptions = [
@@ -185,6 +189,10 @@ type SberTransaction = {
   categoryId: string;
   accountTail?: string;
   isOpening?: boolean;
+  statementBalance?: number;
+  isStatementGapCorrection?: boolean;
+  importOrder?: number;
+  statementOrder?: number;
 };
 
 type SberStatementBalance = {
@@ -378,12 +386,40 @@ const removePairedInternalTransfers = (transactions: SberTransaction[]) => {
 const makePreviewKeysUnique = (transactions: SberTransaction[]) => {
   const seen = new Map<string, number>();
 
-  return transactions.map(transaction => {
+  return transactions.map((transaction, index) => {
     const count = seen.get(transaction.key) || 0;
     seen.set(transaction.key, count + 1);
-    if (count === 0) return transaction;
-    return { ...transaction, key: `${transaction.key}#${count + 1}` };
+    const withOrder = { ...transaction, importOrder: transaction.importOrder ?? index };
+    if (count === 0) return withOrder;
+    return { ...withOrder, key: `${transaction.key}#${count + 1}` };
   });
+};
+
+const compareSberTransactionsByStatementOrder = (a: SberTransaction, b: SberTransaction) => {
+  const dateCompare = b.date.localeCompare(a.date);
+  if (dateCompare !== 0) return dateCompare;
+
+  const statementCompare = (a.statementOrder ?? 0) - (b.statementOrder ?? 0);
+  if (statementCompare !== 0) return statementCompare;
+
+  return (a.importOrder ?? 0) - (b.importOrder ?? 0);
+};
+
+const getSberFileSortParts = (file: File) => {
+  const nameWithoutExtension = file.name.replace(/\.pdf$/i, '').trim();
+  const copyMatch = nameWithoutExtension.match(/^(.*?)(?:\s+(\d+))?$/);
+  return {
+    root: (copyMatch?.[1] || nameWithoutExtension).trim(),
+    copyNumber: copyMatch?.[2] ? parseInt(copyMatch[2], 10) : 0
+  };
+};
+
+const compareSberFiles = (a: File, b: File) => {
+  const aParts = getSberFileSortParts(a);
+  const bParts = getSberFileSortParts(b);
+  const rootCompare = aParts.root.localeCompare(bParts.root, 'ru', { numeric: true, sensitivity: 'base' });
+  if (rootCompare !== 0) return rootCompare;
+  return aParts.copyNumber - bParts.copyNumber;
 };
 
 const detectCategory = (sourceCategory: string, description: string) => {
@@ -410,7 +446,7 @@ const detectCategory = (sourceCategory: string, description: string) => {
   return sberCategoryMap[sourceCategory]?.id || 'cat-other-exp';
 };
 
-const normalizeSberTransaction = (raw: { date: string; time: string; amount: number; type: 'income' | 'expense'; description: string; category: string; accountTail?: string }): SberTransaction | null => {
+const normalizeSberTransaction = (raw: { date: string; time: string; amount: number; type: 'income' | 'expense'; description: string; category: string; accountTail?: string; statementBalance?: number }): SberTransaction | null => {
   let type = raw.type;
   if (raw.category === 'Внесение наличных' || raw.category === 'Заработная плата' || raw.category === 'Компенсации' || raw.category === 'Начальный остаток') {
     type = 'income';
@@ -431,8 +467,52 @@ const normalizeSberTransaction = (raw: { date: string; time: string; amount: num
     description: raw.description,
     sourceCategory: raw.category,
     categoryId,
-    accountTail: raw.accountTail
+    accountTail: raw.accountTail,
+    statementBalance: raw.statementBalance
   };
+};
+
+const createStatementGapCorrections = (transactions: SberTransaction[]) => {
+  const statementRows = transactions.filter(transaction =>
+    !transaction.isOpening &&
+    typeof transaction.statementBalance === 'number'
+  );
+  const corrections: SberTransaction[] = [];
+  const warnings: string[] = [];
+
+  for (let i = 0; i < statementRows.length - 1; i++) {
+    const newer = statementRows[i];
+    const older = statementRows[i + 1];
+    const signedAmount = newer.type === 'income' ? newer.amount : -newer.amount;
+    const expectedBalance = roundMoney((older.statementBalance || 0) + signedAmount);
+    const actualBalance = roundMoney(newer.statementBalance || 0);
+    const difference = roundMoney(actualBalance - expectedBalance);
+
+    if (Math.abs(difference) < 0.01) continue;
+
+    const type = difference > 0 ? 'income' : 'expense';
+    const amount = Math.abs(difference);
+    const description = `Автокорректировка пропущенной операции Сбер между ${older.date} ${older.time || ''} и ${newer.date} ${newer.time || ''}`.replace(/\s+/g, ' ').trim();
+
+    corrections.push({
+      key: `statement-gap-${older.date}-${older.time || ''}-${newer.date}-${newer.time || ''}-${type}-${amount}`,
+      date: newer.date,
+      time: newer.time,
+      amount,
+      type,
+      description,
+      sourceCategory: 'Корректировка остатка',
+      categoryId: type === 'income' ? 'cat-other-inc' : 'cat-other-exp',
+      accountTail: newer.accountTail || older.accountTail,
+      isStatementGapCorrection: true,
+      importOrder: (newer.importOrder ?? 0) + 0.1,
+      statementOrder: newer.statementOrder
+    });
+
+    warnings.push(`В выписке найден пропуск ${formatPreviewAmount(amount)}: добавлена автокорректировка.`);
+  }
+
+  return { corrections, warnings };
 };
 
 const parseSberText = (text: string): SberTransaction[] => {
@@ -508,7 +588,7 @@ const parseStatementBalance = (text: string): SberStatementBalance | null => {
   };
 };
 
-const parseTransactionLine = (line: string): { date: string; time: string; amount: number; type: 'income' | 'expense'; description: string; category: string; accountTail?: string } | null => {
+const parseTransactionLine = (line: string): { date: string; time: string; amount: number; type: 'income' | 'expense'; description: string; category: string; accountTail?: string; statementBalance?: number } | null => {
   const match = line.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}:\d{2})\s+(.+)$/);
   if (!match) return null;
 
@@ -527,6 +607,8 @@ const parseTransactionLine = (line: string): { date: string; time: string; amoun
 
   const beforeAmount = rest.substring(0, rest.indexOf(amountMatch[0])).trim();
   const afterAmount = rest.substring(rest.indexOf(amountMatch[0]) + amountMatch[0].length);
+  const balanceMatch = afterAmount.match(/([-+]?\d+(?:[\s\u00a0]\d{3})*,\d{2})(?:\s|$)/);
+  const statementBalance = balanceMatch ? normalizeSberAmount(balanceMatch[1]) : undefined;
 
   let category = 'Прочие операции';
   let description = beforeAmount;
@@ -547,7 +629,7 @@ const parseTransactionLine = (line: string): { date: string; time: string; amoun
   description = description.replace(/[*#]/g, '').replace(/\s+/g, ' ').trim();
   const accountTail = description.match(/Операция по (?:счету|карте)\s+(\d{4})/)?.[1];
 
-  return { date: dateStr, time, amount, type, description, category, accountTail };
+  return { date: dateStr, time, amount, type, description, category, accountTail, statementBalance };
 };
 
 const getNewSberTransactions = (items: SberTransaction[], existing = getTransactions()) => {
@@ -556,7 +638,7 @@ const getNewSberTransactions = (items: SberTransaction[], existing = getTransact
     const signature = `${item.date}-${item.time || ''}-${item.type}-${item.amount}-${item.accountTail || ''}-${item.description}`;
     if (seenIncoming.has(signature)) return false;
     seenIncoming.add(signature);
-    return !isDuplicateTransaction(item, existing);
+    return !findExistingPdfDuplicate(item, existing);
   });
 };
 
@@ -586,19 +668,20 @@ const createBalanceCorrection = (transactions: SberTransaction[], statements: Sb
   } as SberTransaction;
 };
 
-const isDuplicateTransaction = (newT: SberTransaction, existing: any[]) => {
+const findExistingPdfDuplicate = (newT: SberTransaction, existing: any[]) => {
   if (newT.isOpening) {
-    return existing.some((t: any) =>
+    return existing.find((t: any) =>
       t.accountId === sberAccount.value &&
       (t.note || '').includes('Начальный остаток Сбер')
     );
   }
 
-  return existing.some((t: any) =>
+  return existing.find((t: any) =>
     t.accountId === sberAccount.value &&
     (
       t.importKey === newT.key ||
       (
+        t.source === 'sber-pdf' &&
         t.date === newT.date &&
         parseFloat(t.amount) === newT.amount &&
         t.type === newT.type &&
@@ -608,8 +691,29 @@ const isDuplicateTransaction = (newT: SberTransaction, existing: any[]) => {
   );
 };
 
-const toAppTransaction = (item: SberTransaction) => {
+const isDuplicateTransaction = (newT: SberTransaction, existing: any[]) =>
+  Boolean(findExistingPdfDuplicate(newT, existing));
+
+const isManualReplacementCandidate = (newT: SberTransaction, existingTransaction: any) => {
+  if (!isTransferLike(newT) || newT.isOpening || newT.isStatementGapCorrection) return false;
+  if (existingTransaction.source === 'sber-pdf') return false;
+  if (existingTransaction.accountId !== sberAccount.value) return false;
+  if (existingTransaction.date !== newT.date) return false;
+  if (existingTransaction.type !== newT.type) return false;
+  return roundMoney(parseFloat(existingTransaction.amount)) === roundMoney(newT.amount);
+};
+
+const findManualReplacement = (newT: SberTransaction, existing: any[]) =>
+  existing.find((transaction: any) => isManualReplacementCandidate(newT, transaction));
+
+const getManualNoteText = (transaction: any) =>
+  (transaction?.note || '').replace(/\[[^\]]+\]/g, '').replace(/\s+/g, ' ').trim();
+
+const toAppTransaction = (item: SberTransaction, index: number, manualReplacement?: any) => {
   const now = new Date().toISOString();
+  const categoryId = manualReplacement?.categoryId || item.categoryId;
+  const manualNote = getManualNoteText(manualReplacement);
+
   return {
     id: uuidv4(),
     source: 'sber-pdf',
@@ -619,8 +723,13 @@ const toAppTransaction = (item: SberTransaction) => {
     type: item.type,
     amount: item.amount,
     date: item.date,
-    note: `${item.description} [${getCategoryName(item.categoryId)}]`,
-    categoryId: item.categoryId,
+    importTime: item.time,
+    importOrder: item.importOrder ?? index,
+    statementOrder: item.statementOrder,
+    note: `${manualNote || item.description} [${getCategoryName(categoryId)}]`,
+    categoryId,
+    bankDescription: item.description,
+    replacedManualTransactionId: manualReplacement?.id,
     createdAt: now,
     updatedAt: now
   };
@@ -633,10 +742,25 @@ const importSberTransactions = (items: SberTransaction[]) => {
   const existing = getTransactions();
   currentSberImportBatchId.value = `sber-${Date.now()}`;
   const toAdd = getNewSberTransactions(items, existing);
-  const all = [...existing, ...toAdd.map(toAppTransaction)];
+  const replacements = new Map<string, any>();
+  const replacedIds = new Set<string>();
+
+  toAdd.forEach(item => {
+    const manualReplacement = findManualReplacement(item, existing.filter((transaction: any) => !replacedIds.has(transaction.id)));
+    if (manualReplacement?.id) {
+      replacements.set(item.key, manualReplacement);
+      replacedIds.add(manualReplacement.id);
+      trackDeletedId('transaction', manualReplacement.id);
+    }
+  });
+
+  const all = [
+    ...existing.filter((transaction: any) => !replacedIds.has(transaction.id)),
+    ...toAdd.map((item, index) => toAppTransaction(item, index, replacements.get(item.key)))
+  ];
   localStorage.setItem('budget_transactions', JSON.stringify(all));
   syncToServer();
-  return { added: toAdd.length, skipped: items.length - toAdd.length };
+  return { added: toAdd.length, skipped: items.length - toAdd.length, replaced: replacedIds.size };
 };
 
 const triggerSberPdfImport = () => {
@@ -683,20 +807,30 @@ const importSberPdf = async (e: Event) => {
   if (!files.length) return;
 
   sberLoading.value = true;
+  sberImportWarnings.value = [];
   try {
     const parsed: SberTransaction[] = [];
     const statements: SberStatementBalance[] = [];
-    for (const file of files) {
+    let nextImportOrder = 0;
+    const sortedFiles = [...files].sort(compareSberFiles);
+    for (const [statementOrder, file] of sortedFiles.entries()) {
       const text = await extractPdfText(file);
       const statement = parseStatementBalance(text);
       if (statement) statements.push(statement);
-      parsed.push(...parseSberText(text));
+      const fileTransactions = parseSberText(text).map(transaction => ({
+        ...transaction,
+        importOrder: nextImportOrder++,
+        statementOrder
+      }));
+      const gapCheck = createStatementGapCorrections(fileTransactions);
+      parsed.push(...fileTransactions, ...gapCheck.corrections);
+      sberImportWarnings.value.push(...gapCheck.warnings);
     }
     const withoutInternalTransfers = removePairedInternalTransfers(parsed);
     const correction = createBalanceCorrection(withoutInternalTransfers, statements, parseOptionalSberTargetBalance());
     const previewItems = correction ? [...withoutInternalTransfers, correction] : withoutInternalTransfers;
     sberPreview.value = makePreviewKeysUnique(previewItems)
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .sort(compareSberTransactionsByStatementOrder);
     if (!sberPreview.value.length) {
       $q.notify({ message: 'Не удалось найти операции в PDF', color: 'negative' });
     }
@@ -711,7 +845,8 @@ const importSberPdf = async (e: Event) => {
 const confirmSberPreviewImport = () => {
   const result = importSberTransactions(sberPreview.value);
   sberPreview.value = [];
-  $q.notify({ message: `Импортировано ${result.added} операций, дублей пропущено: ${result.skipped}`, color: 'positive' });
+  const replacedText = result.replaced ? `, ручных дублей заменено: ${result.replaced}` : '';
+  $q.notify({ message: `Импортировано ${result.added} операций, дублей пропущено: ${result.skipped}${replacedText}`, color: 'positive' });
   setTimeout(() => location.reload(), 1000);
 };
 

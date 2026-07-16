@@ -29,7 +29,8 @@ onMounted(async () => {
   window.dispatchEvent(new CustomEvent('dataUpdated'));
 
   if (result?.synced) {
-    $q.notify({ message: `Синхронизировано. Локально: ${result.transactions}, на сервере: ${result.serverTransactions}`, color: 'positive', timeout: 3000 });
+    const restoredText = result.restoredServer ? ' Сервер обновлён.' : '';
+    $q.notify({ message: `Синхронизировано. Локально: ${result.transactions}, на сервере было: ${result.serverTransactions}.${restoredText}`, color: 'positive', timeout: 3000 });
   }
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
