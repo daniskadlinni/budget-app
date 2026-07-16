@@ -20,10 +20,24 @@ const dataTypes: Record<string, string> = {
   reminders: "reminder",
 };
 
-function mergeDeletedIds(local: any[] = [], server: any[] = []) {
+function getActiveIncomingIds(incoming: Record<string, any[] | undefined>) {
+  const active = new Set<string>();
+  Object.entries(incoming).forEach(([key, value]) => {
+    const type = dataTypes[key];
+    if (!type || !Array.isArray(value)) return;
+    value.forEach((item) => {
+      if (item?.id) active.add(`${type}:${item.id}`);
+    });
+  });
+  return active;
+}
+
+function mergeDeletedIds(local: any[] = [], server: any[] = [], activeIncomingIds = new Set<string>()) {
   const map = new Map();
   [...server, ...local].forEach((item) => {
-    if (item?.type && item?.id) map.set(`${item.type}:${item.id}`, item);
+    if (!item?.type || !item?.id) return;
+    const key = `${item.type}:${item.id}`;
+    if (!activeIncomingIds.has(key)) map.set(key, item);
   });
   return Array.from(map.values());
 }
@@ -85,10 +99,6 @@ serve(async (req) => {
 
       const { data: existing } = await supabase.from("sync_data").select("*");
 
-      const existingDeletedIds = JSON.parse(existing?.find(r => r.key === "deletedIds")?.value || "[]");
-      const mergedDeletedIds = mergeDeletedIds(deletedIds, existingDeletedIds);
-      await supabase.from("sync_data").upsert({ key: "deletedIds", value: JSON.stringify(mergedDeletedIds) }, { onConflict: "key" });
-
       const incoming: Record<string, any[] | undefined> = {
         accounts,
         categories,
@@ -102,6 +112,11 @@ serve(async (req) => {
         products,
         reminders,
       };
+
+      const existingDeletedIds = JSON.parse(existing?.find(r => r.key === "deletedIds")?.value || "[]");
+      const activeIncomingIds = getActiveIncomingIds(incoming);
+      const mergedDeletedIds = mergeDeletedIds(deletedIds, existingDeletedIds, activeIncomingIds);
+      await supabase.from("sync_data").upsert({ key: "deletedIds", value: JSON.stringify(mergedDeletedIds) }, { onConflict: "key" });
 
       for (const [key, value] of Object.entries(incoming)) {
         if (value === undefined) continue;
