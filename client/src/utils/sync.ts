@@ -156,19 +156,17 @@ export const syncFromServer = async () => {
       const result: any[] = [];
 
       for (const [id, localItem] of localMap) {
-        if (deletedSet.has(id)) continue;
         const serverItem = serverMap.get(id);
         if (serverItem) {
           const localTime = new Date(localItem.updatedAt || 0).getTime();
           const serverTime = new Date(serverItem.updatedAt || 0).getTime();
           result.push(serverTime > localTime ? serverItem : localItem);
-        } else {
+        } else if (!deletedSet.has(id)) {
           result.push(localItem);
         }
       }
 
       for (const [id, serverItem] of serverMap) {
-        if (deletedSet.has(id)) continue;
         if (!localMap.has(id)) {
           result.push(serverItem);
         }
